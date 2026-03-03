@@ -39,23 +39,30 @@ var whitelist = [
     'localhost:3058'
 ];
 
-var corsOption = function (req, callback) {
-    var corsOptions;
-    if (whitelist.indexOf(req.header('host')) !== -1) {
-      corsOptions = { origin: true } // reflect (enable) the requested origin in the CORS response
-    //   console.log(corsOptions);
-      callback(null, corsOptions)
+const allowedOrigins = [
+  "http://localhost:3056",
+  "http://localhost:3057",
+  "http://localhost:3058",
+  "https://shivalik-institute.onrender.com"
+];
+
+const corsOptions = {
+  origin: function (origin, callback) {
+
+    // allow requests with no origin (like mobile apps / postman)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
     } else {
-        corsOptions = { origin: false } // disable CORS for this request
-        // console.log(corsOptions);
-        callback(new Error(`Not allowed by CORS : ${req.header('host')}`))
-
+      callback(new Error("Not allowed by CORS: " + origin));
     }
-    // console.log(corsOptions);
-    // callback(null, corsOptions) // callback expects two parameters: error and options
-}
+  },
+  credentials: true
+};
 
-app.use(cors(corsOption));
+
+app.use(cors(corsOptions));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(fileUpload());
