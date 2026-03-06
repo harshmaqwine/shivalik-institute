@@ -14,5 +14,7 @@ router.put("/update/:studentId", /*superAdminVerifyToken,*/ InstituteStudentVali
 router.delete("/delete/:studentId", /*superAdminVerifyToken,*/ InstituteStudentValidation.delete, InstituteStudentController.deleteStudent);
 
 router.get("/batch/dropdown-list", /*[superAdminVerifyToken],*/ InstituteStudentValidation.batchDropdownList, InstituteStudentController.batchDropdownList);
+
+router.get("/course/dropdown-list", /*[superAdminVerifyToken],*/ InstituteStudentValidation.courseDropdownList, InstituteStudentController.courseDropdownList);
     
 module.exports = router;

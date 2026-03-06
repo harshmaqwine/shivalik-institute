@@ -48,6 +48,15 @@ const InstituteBatchesSchema = new Schema({
         type: String,
         default: ''
     },
+    batchSize: {
+        type: Number,
+        default: 0
+    },
+    // number of days after batch completion when app access should expire
+    appAccessExpireDays: {
+        type: Number,
+        default: 0
+    },
     status: {
         type: String,
         enum: commonStatus,
@@ -80,6 +89,7 @@ const InstituteBatchesSchema = new Schema({
     }
 });
 
+// indexes used for filtering/search
 InstituteBatchesSchema.index({instituteCourseId: 1})
 InstituteBatchesSchema.index({instituteSubCourseId: 1})
 InstituteBatchesSchema.index({batchName: 1})

@@ -1,9 +1,10 @@
 const messages = require("../message/index.js");
 const response = require("../config/response.js");
 const { validationResult } = require('express-validator');
-const CommonConfig = require('../config/common.js');
-const CommonFun = require('../libs/common.js');
-const expertsModel = require("../models/experts.js");
+const CommonConfig = require('../config/common.js'); 
+const { commonStatus } = require('../config/data');
+const expertsModel = require("../models/instituteExperts.js");
+const path = require('path');
 
 /**
  * Creates a new expert profile.
@@ -29,13 +30,38 @@ const create = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        const { name, specialization, perHourRate } = req.body;
-        const newExpert = new expertsModel.Experts({
-            name,
-            specialization,
-            perHourRate,
+        // copy body fields directly; mongoose will apply schema rules
+        const expertData = {
+            ...req.body,
             createdBy: req.userId
-        });
+        };
+        // bankDetails may be sent as JSON string
+        if (expertData.bankDetails && typeof expertData.bankDetails === 'string') {
+            try { expertData.bankDetails = JSON.parse(expertData.bankDetails); } catch(e) { /* ignore parse errors */ }
+        }
+
+        // handle file uploads (express-fileupload)
+        if (req.files) {
+            // ensure upload directory exists
+            const uploadDir = `${__dirname}/../uploads/experts`;
+            const fs = require('fs');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            if (req.files.panCard) {
+                const file = req.files.panCard;
+                const dest = `${uploadDir}/pan_${Date.now()}_${file.name}`;
+                await file.mv(dest);
+                expertData.panCard = `/uploads/experts/${path.basename(dest)}`;
+            }
+            if (req.files.profilePicture) {
+                const file = req.files.profilePicture;
+                const dest = `${uploadDir}/pic_${Date.now()}_${file.name}`;
+                await file.mv(dest);
+                expertData.profilePicture = `/uploads/experts/${path.basename(dest)}`;
+            }
+        }
+
+        const newExpert = new expertsModel.Experts(expertData);
         const savedExpert = await newExpert.save();
         return res.status(200).send(response.toJson(messages['en'].experts.create_success, savedExpert));
     }
@@ -70,7 +96,7 @@ const list = async (req, res) => {
         //     );
         // }
 
-        // Pagination
+          // Pagination
         const page = parseInt(req.query.page) || 1;
         const pageSize = parseInt(req.query.pageSize) || 10;
         const skip = (page - 1) * pageSize;
@@ -80,43 +106,68 @@ const list = async (req, res) => {
         const sortOrder = req.query.sortOrder === 'asc' ? 1 : -1;
         const sort = { [sortBy]: sortOrder };
 
-        // Filters
-        const filters = {};
-        const searchTerms = [req.query.search, req.query.name, req.query.specialization]
-            .filter(Boolean)
-            .join(' ')
-            .trim();
+        // Base filter
+        const filters = { isDeleted: false };
 
-        if (searchTerms) {
-            filters.$text = { $search: searchTerms };
+        // 🔎 Search (firstName + lastName + specialization)
+        if (req.query.search) {
+            filters.$or = [
+                { firstName: { $regex: req.query.search, $options: 'i' } },
+                { lastName: { $regex: req.query.search, $options: 'i' } },
+                { specialization: { $regex: req.query.search, $options: 'i' } }
+            ];
         }
+
+        // Individual Filters
+        if (req.query.name) {
+            filters.$or = [
+                { firstName: { $regex: req.query.name, $options: 'i' } },
+                { lastName: { $regex: req.query.name, $options: 'i' } }
+            ];
+        }
+
+        if (req.query.specialization) {
+            filters.specialization = {
+                $regex: req.query.specialization,
+                $options: 'i'
+            };
+        }
+
         if (req.query.status) {
             filters.status = req.query.status;
         }
 
-        // Fetch experts with filters, sorting, and pagination
-        const [experts, total] = await Promise.all([
-            expertsModel.Experts.find({ ...filters, isDeleted: false })
-
+        // Fetch Data
+        const [experts, totalRecords] = await Promise.all([
+            expertsModel.Experts.find(filters)
                 .select("-createdAt -updatedAt -__v")
                 .sort(sort)
                 .skip(skip)
                 .limit(pageSize)
                 .lean(),
-            expertsModel.Experts.countDocuments({ ...filters, isDeleted: false })
+
+            expertsModel.Experts.countDocuments(filters)
         ]);
 
-        return res.status(200).send(response.toJson(messages['en'].experts.list_success, {
-            experts,
-            total,
-            currentPage: page,
-            totalPages: Math.ceil(total / pageSize)
-        }));
+        return res.status(200).send(
+            response.toJson(messages['en'].experts.list_success, {
+                experts,
+                pagination: {
+                    totalRecords,
+                    currentPage: page,
+                    totalPages: totalRecords > 0 ? Math.ceil(totalRecords / pageSize) : 0,
+                    pageSize
+                }
+            })
+        );
+
     } catch (error) {
         console.error("Error fetching experts:", error);
-        return res.status(500).send(response.toJson(messages['en'].experts.list_failure));
+        return res.status(500).send(
+            response.toJson(messages['en'].experts.list_failure)
+        );
     }
-}
+};
 
 /**
  * Returns details of one expert by id.
@@ -190,6 +241,28 @@ const update = async (req, res) => {
             // updatedBy: req.user?._id,
             updatedAt: new Date()
         };
+        if (updateData.bankDetails && typeof updateData.bankDetails === 'string') {
+            try { updateData.bankDetails = JSON.parse(updateData.bankDetails); } catch(e) { }
+        }
+        // handle file uploads on update as well
+        if (req.files) {
+            const uploadDir = `${__dirname}/../uploads/experts`;
+            const fs = require('fs');
+            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+
+            if (req.files.panCard) {
+                const file = req.files.panCard;
+                const dest = `${uploadDir}/pan_${Date.now()}_${file.name}`;
+                await file.mv(dest);
+                updateData.panCard = `/uploads/experts/${path.basename(dest)}`;
+            }
+            if (req.files.profilePicture) {
+                const file = req.files.profilePicture;
+                const dest = `${uploadDir}/pic_${Date.now()}_${file.name}`;
+                await file.mv(dest);
+                updateData.profilePicture = `/uploads/experts/${path.basename(dest)}`;
+            }
+        }
 
         const updatedExpert = await expertsModel.Experts.findByIdAndUpdate(
             expertId,

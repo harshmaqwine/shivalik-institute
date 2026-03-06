@@ -1,12 +1,22 @@
 const { check, param } = require("express-validator");
 
 exports.create = [
+    check('CourseId')
+        .optional()
+        .isMongoId().withMessage('Course Id must be a valid MongoDB ObjectId'),
     check('batchId')
         .notEmpty().withMessage('Batch Id is required')
         .isMongoId().withMessage('Batch Id must be a valid MongoDB ObjectId'),
-    check('name')
-        .notEmpty().withMessage('Name is required')
-        .isLength({ max: 100 }).withMessage('Name must be at most 100 characters long'),
+    check('prefixName')
+        .notEmpty().withMessage('Prefix is required')
+        .customSanitizer(val => typeof val === 'string' ? val.toUpperCase() : val)
+        .isIn(['MR','MRS','MISS','DR','CA','AR','ADV']).withMessage('Prefix must be one of MR, MRS, MISS, DR, CA, AR, ADV'),
+    check('firstName')
+        .notEmpty().withMessage('First name is required')
+        .isLength({ max: 100 }).withMessage('First name must be at most 100 characters long'),
+    check('lastName')
+        .notEmpty().withMessage('Last name is required')
+        .isLength({ max: 100 }).withMessage('Last name must be at most 100 characters long'),
     check('email')
         .notEmpty().withMessage('Email is required')
         .isEmail().withMessage('Email must be a valid email address')
@@ -15,6 +25,25 @@ exports.create = [
         .notEmpty().withMessage('Phone number is required')
         .isMobilePhone().withMessage('Phone number must be a valid mobile phone number')
         .isLength({ max: 20 }).withMessage('Phone number must be at most 20 characters long'),
+    check('enrollmentNo')
+        .notEmpty().withMessage('Enrollment number is required'),
+    check('gender')
+        .notEmpty().withMessage('Gender is required')
+        .customSanitizer(val => typeof val === 'string' ? val.toUpperCase() : val)
+        .isIn(['MALE','FEMALE','OTHER']).withMessage('Gender must be one of MALE, FEMALE or OTHER'),
+    check('age')
+        .notEmpty().withMessage('Age is required')
+        .isInt({ min: 0 }).withMessage('Age must be a non-negative integer'),
+    check('state')
+        .notEmpty().withMessage('State is required'),
+    check('city')
+        .notEmpty().withMessage('City is required'),
+    check('yearsOfExperienceRealEstate')
+        .notEmpty().withMessage('Years of experience is required')
+        .isInt({ min: 0 }).withMessage('Years of experience must be a non-negative integer'),
+    check('courseStartDate')
+        .notEmpty().withMessage('Course start date is required')
+        .isISO8601().withMessage('Course start date must be a valid date'),
 ];
 
 exports.list = [ 
@@ -92,6 +121,13 @@ exports.delete = [
 ];
 
 exports.batchDropdownList = [
+    check('search')
+        .optional()
+        .isString().withMessage('Search must be a string')
+        .isLength({ max: 100 }).withMessage('Search must be at most 100 characters long'),
+];
+
+exports.courseDropdownList = [
     check('search')
         .optional()
         .isString().withMessage('Search must be a string')

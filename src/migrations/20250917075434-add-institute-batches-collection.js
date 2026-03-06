@@ -43,6 +43,12 @@ module.exports = {
             endDate: {
               bsonType: "string",
             },
+            batchSize: {
+              bsonType: "int",
+            },
+            appAccessExpireDays: {
+              bsonType: "int",
+            },
             status: {
               bsonType: "string",
             },

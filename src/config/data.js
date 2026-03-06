@@ -2,8 +2,9 @@
 const enums = {
 
   commonStatus : ['ACTIVE', 'INACTIVE', 'DELETED'],
-  leadType : ['BROCHURE','ENROLL'],
-
+  leadType : ['BROCHURE','ENROLL'], 
+  prefixName : ['MR', 'MRS', 'MISS', 'DR', 'CA', 'AR', 'ADV'],
+  gender : ['MALE', 'FEMALE', 'OTHER'],
 }
 
 module.exports = enums

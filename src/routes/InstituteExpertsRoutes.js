@@ -1,6 +1,6 @@
 const router = require('express').Router();
-const { superAdminVerifyToken } = require("../middleware/authJwt");
-const ExpertsController = require("../controllers/expertsController");
+const { superAdminVerifyToken } = require("../middleware/authJwt.js");
+const ExpertsController = require("../controllers/InstituteExpertsController.js");
 const ExpertsValidation = require("../validations/expertsValidation.js");
 
 router.post("/create", /*[superAdminVerifyToken],*/ ExpertsValidation.create, ExpertsController.create);

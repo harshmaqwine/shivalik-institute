@@ -14,41 +14,130 @@ module.exports = {
       validator: {
         $jsonSchema: {
           bsonType: "object",
+          required: ["courseId", "classroomNumber", "lectureDate"],
           properties: {
-            lectureName: {
-              bsonType: "string",
+
+            courseId: {
+              bsonType: "objectId",
+              description: "Course reference"
             },
+
+            subCourseId: {
+              bsonType: ["objectId", "null"]
+            },
+
+            batchId: {
+              bsonType: ["objectId", "null"]
+            },
+
+            moduleId: {
+              bsonType: ["objectId", "null"]
+            },
+
+            classroomNumber: {
+              bsonType: "string"
+            },
+
             lectureDate: {
-              bsonType: "date",
+              bsonType: "date"
             },
-            lectureDescription: {
-              bsonType: "string",
+
+            details: {
+              bsonType: "array",
+              items: {
+                bsonType: "object",
+                required: ["topic", "lectureType", "sessionStartTime", "sessionEndTime"],
+                properties: {
+
+                  expertId: {
+                    bsonType: ["objectId", "null"]
+                  },
+
+                  topic: {
+                    bsonType: "string"
+                  },
+
+                  lectureType: {
+                    enum: ["Guest", "Module", "Site Visit", "Master Class"]
+                  },
+
+                  sessionStartTime: {
+                    bsonType: "string"
+                  },
+
+                  sessionEndTime: {
+                    bsonType: "string"
+                  }
+
+                }
+              }
             },
+
+            material: {
+              bsonType: ["string", "null"]
+            },
+
+            createFeedbackForLearner: {
+              bsonType: "bool"
+            },
+
+            feedbackForCoordinator: {
+              bsonType: ["string", "null"]
+            },
+
+            projectReviewLecture: {
+              bsonType: "bool"
+            },
+
+            juryLecture: {
+              bsonType: "bool"
+            },
+
+            moduleFinished: {
+              bsonType: "bool"
+            },
+
+            submissionRequired: {
+              bsonType: "bool"
+            },
+
+            notifyStudents: {
+              bsonType: "bool"
+            },
+
             status: {
-              bsonType: "string",
+              bsonType: "string"
             },
-            createdBy: {
-              bsonType: "objectId",
-            },
-            updatedBy: {
-              bsonType: "objectId",
-            },
-            createdAt: {
-              bsonType: "date",
-            },
-            updatedAt: {
-              bsonType: "date",
-            },
-            deletedAt: {
-              bsonType: "date",
-            },
+
             isDeleted: {
-              bsonType: "bool",
+              bsonType: "bool"
             },
-          },
-        },
-      },
+
+            createdBy: {
+              bsonType: ["objectId", "null"]
+            },
+
+            updatedBy: {
+              bsonType: ["objectId", "null"]
+            },
+
+            createdAt: {
+              bsonType: "date"
+            },
+
+            updatedAt: {
+              bsonType: "date"
+            },
+
+            deletedAt: {
+              bsonType: ["date", "null"]
+            }
+
+          }
+        }
+      }
     });
+
   },
 
   /**

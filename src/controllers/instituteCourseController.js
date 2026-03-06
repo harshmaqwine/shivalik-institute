@@ -8,8 +8,9 @@ const InstituteCoursesModel = require("../models/instituteCourses.js");
 const InstituteBatchesModel = require("../models/instituteBatches.js");
 const { InstituteModulesModel } = require('../models/instituteModules.js');
 const { InstituteLectures } = require("../models/instituteLectures.js");
-const expertsModel = require("../models/experts.js");
+const expertsModel = require("../models/instituteExperts.js");
 
+// create course.
 const create = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -142,6 +143,7 @@ const deleteCourse = async (req, res) => {
     }
 }
 
+// create sub course.
 const createSubCourse = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -287,6 +289,7 @@ const deleteSubCourse = async (req, res) => {
     }
 }
 
+// list courses with pagination and sorting.
 const list = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -313,7 +316,7 @@ const list = async (req, res) => {
         const orderBy = req.query.sort === 'ASC' ? 1 : -1;
         const sorting = { [reqSortBy]: orderBy };
 
-        const baseQuery = { 
+        const baseQuery = {
             isDeleted: false,
         };
 
@@ -512,6 +515,7 @@ const publicList = async (req, res) => {
     }
 }
 
+// get sub course list.
 const subCourcePublicList = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -601,50 +605,87 @@ const listSubCourse = async (req, res) => {
         //     );
         // }
 
-        const page = parseInt(req.query.page) || 1;
-        const pageSize = 10;
-        const skip = (page - 1) * pageSize;
 
+        // PAGINATION
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // sorting
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sort === "asc" ? 1 : -1;
+
+        const sortObject = {};
+        sortObject[sortBy] = sortOrder;
+
+        // Filter
         const baseQuery = { isDeleted: false };
 
         if (req.query.instituteCourseId) {
             baseQuery.instituteCourseId = req.query.instituteCourseId;
         }
 
+        if (req.query.status) {
+            baseQuery.status = req.query.status;
+        }
+
+        // Search
+        if (req.query.search) {
+            baseQuery.name = {
+                $regex: req.query.search,
+                $options: "i"
+            };
+        }
+
+        // QUERY
         const [subCourses, total] = await Promise.all([
+
             InstituteSubCoursesModel.find(baseQuery)
                 .populate({
                     path: 'instituteCourseId',
                     select: 'name'
                 })
-                .sort({ createdAt: -1 })
+                .sort(sortObject)
                 .skip(skip)
-                .limit(pageSize)
+                .limit(limit)
                 .lean(),
+
             InstituteSubCoursesModel.countDocuments(baseQuery)
         ]);
 
+        // Response
         const formattedData = subCourses.map(item => ({
             _id: item._id,
             name: item.name,
             price: item.price,
             discount: item.discount,
             status: item.status,
-            courseName: item.instituteCourseId?.name || null
+            course: item.instituteCourseId ? {
+                _id: item.instituteCourseId._id,
+                name: item.instituteCourseId.name
+            } : null
         }));
 
         return res.status(200).send(
-            response.toJson(messages['en'].common.list_success, {
-                subCourses: formattedData,
-                total,
-                currentPage: page,
-                totalPages: Math.ceil(total / pageSize)
-            })
+            response.toJson(
+                messages['en'].common.list_success,
+                {
+                    subCourses: formattedData,
+                    pagination: {
+                        totalRecords: total,
+                        currentPage: page,
+                        totalPages: Math.ceil(total / limit),
+                        pageSize: limit
+                    }
+                }
+            )
         );
 
     } catch (err) {
         console.log(err);
-        return res.status(500).send(response.toJson(err.message));
+        return res.status(500).send(
+            response.toJson(err.message)
+        );
     }
 };
 
@@ -806,6 +847,8 @@ const createBatch = async (req, res) => {
             registrationEndDate: req.body.registrationEndDate,
             startDate: req.body.startDate,
             endDate: req.body.endDate,
+            batchSize: parseInt(req.body.batchSize) || 0,
+            appAccessExpireDays: parseInt(req.body.appAccessExpireDays) || 0,
             // createdBy: req.user._id
         });
 
@@ -820,6 +863,7 @@ const createBatch = async (req, res) => {
     }
 }
 
+// update batch, all fields are optional.
 const updateBatch = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -887,6 +931,8 @@ const updateBatch = async (req, res) => {
                 ...req.body,
                 batchName: newBatchName,
                 slug: slug,
+                batchSize: req.body.batchSize !== undefined ? parseInt(req.body.batchSize) : batch.batchSize,
+                appAccessExpireDays: req.body.appAccessExpireDays !== undefined ? parseInt(req.body.appAccessExpireDays) : batch.appAccessExpireDays,
                 // updatedBy: req.user._id,
                 updatedAt: new Date()
             }
@@ -946,6 +992,7 @@ const deleteBatch = async (req, res) => {
     }
 }
 
+// get batch list.
 const listBatch = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -965,96 +1012,93 @@ const listBatch = async (req, res) => {
         //     );
         // }
 
-        // Pagination
-        const page = req.query.page ? parseInt(req.query.page) - 1 : 0;
-        const pageSize = req.query.pageSize
-            ? parseInt(req.query.pageSize)
-            : (CommonConfig.instituteBatchListLimit || 10);
+        // PAGINATION
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
 
         // Sorting
-        let reqSortBy = req.query.sortBy || 'createdAt';
-        const orderBy = req.query.sort && req.query.sort === 'ASC' ? -1 : 1;
-        const sorting = { [reqSortBy]: orderBy };
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sort === "asc" ? 1 : -1;
+
+        const sorting = { [sortBy]: sortOrder };
 
         // Filters
-        const filters = {
-            instituteCourseId: req.query.instituteCourseId,
-            instituteSubCourseId: req.query.instituteSubCourseId,
-            type: req.query.type,
-        };
-        let baseQuery = { isDeleted: false };
-        if (filters.instituteCourseId) {
-            baseQuery.instituteCourseId = filters.instituteCourseId;
-        }
-        if (filters.instituteSubCourseId) {
-            baseQuery.instituteSubCourseId = filters.instituteSubCourseId;
-        }
+        const baseQuery = { isDeleted: false };
 
-        // Fetch batches with populate for course/subCourse
-        let rawBatches = await InstituteBatchesModel.find(baseQuery)
-            .sort(sorting)
-            .populate({ path: 'instituteCourseId', select: 'name' })
-            .populate({ path: 'instituteSubCourseId', select: 'name' })
-            .lean();
+        if (req.query.instituteCourseId)
+            baseQuery.instituteCourseId = req.query.instituteCourseId;
 
-        const parseDate = (val) => {
-            if (!val || typeof val !== 'string') return null;
-            const tmp = new Date(val);
-            if (isNaN(tmp.getTime())) return null;
-            return new Date(Date.UTC(tmp.getUTCFullYear(), tmp.getUTCMonth(), tmp.getUTCDate()));
-        };
+        if (req.query.instituteSubCourseId)
+            baseQuery.instituteSubCourseId = req.query.instituteSubCourseId;
 
-        const now = new Date();
-        const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+        const [rawBatches, totalRecords] = await Promise.all([
+
+            InstituteBatchesModel.find(baseQuery)
+                .sort(sorting)
+                .skip(skip)
+                .limit(limit)
+                .populate({ path: 'instituteCourseId', select: 'name' })
+                .populate({ path: 'instituteSubCourseId', select: 'name' })
+                .lean(),
+
+            InstituteBatchesModel.countDocuments(baseQuery)
+        ]);
+
+        const today = new Date();
+
         let filtered = rawBatches;
-        if (filters.type) {
-            const typeLower = String(filters.type).toLowerCase();
-            filtered = rawBatches.filter((b) => {
-                const s = parseDate(b.startDate);
-                const e = parseDate(b.endDate);
-                if (!s || !e) return false;
-                const isCompleted = e < todayUTC;
-                const isUpcoming = s > todayUTC;
-                const isOngoing = s <= todayUTC && todayUTC <= e;
 
-                if (typeLower === 'completed') return isCompleted;
-                if (typeLower === 'upcoming') return isUpcoming;
-                if (typeLower === 'ongoing') return isOngoing;
+        if (req.query.type) {
+            const typeLower = req.query.type.toLowerCase();
+
+            filtered = rawBatches.filter((b) => {
+
+                if (!start || !end) return false;
+
+                const isCompleted = end < today;
+                const isUpcoming = start > today;
+                const isOngoing = start <= today && today <= end;
+
+                if (typeLower === "completed") return isCompleted;
+                if (typeLower === "upcoming") return isUpcoming;
+                if (typeLower === "ongoing") return isOngoing;
+
                 return true;
             });
         }
 
-        const total = filtered.length;
+        // Response
+        const batches = filtered.map((item) => ({
+            _id: item._id,
+            batchName: item.batchName,
 
-        // Manual pagination
-        const startIndex = page * pageSize;
-        const endIndex = startIndex + pageSize;
+            course: item.instituteCourseId ? {
+                _id: item.instituteCourseId._id,
+                name: item.instituteCourseId.name
+            } : null,
 
-        const paginated = filtered.slice(startIndex, endIndex);
+            subCourse: item.instituteSubCourseId ? {
+                _id: item.instituteSubCourseId._id,
+                name: item.instituteSubCourseId.name
+            } : null,
 
-        const batches = paginated.map((item) => {
-            const courseName = item.instituteCourseId?.name || "";
-            const subCourseName = item.instituteSubCourseId?.name || "";
-
-            return {
-                _id: item._id,
-                batchName: item.batchName,
-                slug: item.slug,
-                startTime: item.startTime,
-                endTime: item.endTime,
-                shift: item.shift,
-                orientationDate: item.orientationDate,
-                registrationEndDate: item.registrationEndDate,
-                startDate: item.startDate,
-                endDate: item.endDate,
-                status: item.status,
-                courseName,
-                subCourseName
-            };
-        });
+            shift: item.shift,
+            startDate: item.startDate,
+            batchSize: item.batchSize || 0,
+            slug: item.slug
+        }));
 
         return res.status(200).send(
-            response.toJson(messages['en'].common.list_success, { batches, total })
+            response.toJson(messages['en'].common.list_success, {
+                batches,
+                pagination: {
+                    totalRecords,
+                    currentPage: page,
+                    totalPages: Math.ceil(totalRecords / limit),
+                    pageSize: limit
+                }
+            })
         );
 
     } catch (err) {
@@ -1118,6 +1162,8 @@ const batchDetails = async (req, res) => {
             startDate: batch.startDate,
             endDate: batch.endDate,
             status: batch.status,
+            batchSize: batch.batchSize || 0,
+            appAccessExpireDays: batch.appAccessExpireDays || 0,
 
             courseDetails: batch.instituteCourseId
                 ? {
@@ -1279,6 +1325,52 @@ const batchDropdownList = async (req, res) => {
     }
 };
 
+// get global module _id & name list for dropdown, based on course and sub course
+const moduleDropdownList = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).send(response.toJson(errors.errors[0].msg));
+    }
+    try {
+        // Role validation
+        // const allowedRoles = ["SuperAdmin", "InstituteManager", "InstituteExecutive"];
+        // const userHasAccess = req.user?.userRoles?.some(role =>
+        //     allowedRoles.includes(role)
+        // );
+        // if (!userHasAccess) {
+        //     return res.status(404).send(
+        //         response.toJson(messages['en'].auth.not_access)
+        //     );
+        // }
+        const baseQuery = { isDeleted: false };
+
+        if (req.query.instituteCourseId) {
+            baseQuery.instituteCourseId = req.query.instituteCourseId;
+        }
+
+        if (req.query.instituteSubCourseId) {
+            baseQuery.instituteSubCourseId = req.query.instituteSubCourseId;
+        }
+
+        const modules = await InstituteModulesModel
+            .find(baseQuery, { _id: 1, name: 1 })
+            .lean();
+
+        return res.status(200).send(
+            response.toJson(
+                messages['en'].common.list_success,
+                { modules }
+            )
+        );
+
+    } catch (err) {
+        console.log(err);
+        return res.status(500).send(
+            response.toJson(messages['en'].common.not_exists)
+        );
+    }
+};
+
 // create module exports
 const createModule = async (req, res) => {
     const errors = validationResult(req);
@@ -1373,42 +1465,93 @@ const listModule = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        const courseId = req.query.courseId;
-        const subCourseId = req.query.subCourseId;
+
+        // PAGINATION
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Sorting
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sort === "asc" ? 1 : -1;
+        const sorting = { [sortBy]: sortOrder };
+
+        // Filters
         const baseQuery = { isDeleted: false };
-        if (courseId) {
-            baseQuery.instituteCourseId = courseId;
+
+        if (req.query.instituteCourseId)
+            baseQuery.instituteCourseId = req.query.instituteCourseId;
+
+        if (req.query.instituteSubCourseId)
+            baseQuery.instituteSubCourseId = req.query.instituteSubCourseId;
+
+        if (req.query.moduleNumber)
+            baseQuery.moduleNumber = req.query.moduleNumber;
+
+        if (req.query.status)
+            baseQuery.status = req.query.status;
+
+        if (req.query.createdBy)
+            baseQuery.createdBy = req.query.createdBy;
+
+        if (req.query.search) {
+            baseQuery.$or = [
+                { name: { $regex: req.query.search, $options: "i" } },
+                { coordinator: { $regex: req.query.search, $options: "i" } }
+            ];
         }
-        if (subCourseId) {
-            baseQuery.instituteSubCourseId = subCourseId;
-        }
-        const modules = await InstituteModulesModel.find(baseQuery)
-            .populate("instituteCourseId", "name")
-            .populate("instituteSubCourseId", "name")
-            .lean();
-        const formattedModules = modules.map(
-            ({
-                instituteCourseId,
-                instituteSubCourseId,
-                createdAt,
-                updatedAt,
-                __v,
-                ...rest
-            }) => ({
-                ...rest,
-                courseName: instituteCourseId?.name || null,
-                subCourseName: instituteSubCourseId?.name || null
+
+        // QUERY
+        const [modules, totalRecords] = await Promise.all([
+
+            InstituteModulesModel.find(baseQuery)
+                .select('-createdAt -updatedAt -__v')
+                .populate("instituteCourseId", "name")
+                .populate("instituteSubCourseId", "name")
+                .sort(sorting)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+
+            InstituteModulesModel.countDocuments(baseQuery)
+        ]);
+
+        // Response
+        const formattedModules = modules.map(item => ({
+            _id: item._id,
+            name: item.name,
+            moduleNumber: item.moduleNumber,
+            coordinator: item.coordinator,
+            status: item.status,
+
+            course: item.instituteCourseId ? {
+                _id: item.instituteCourseId._id,
+                name: item.instituteCourseId.name
+            } : null,
+
+            subCourse: item.instituteSubCourseId ? {
+                _id: item.instituteSubCourseId._id,
+                name: item.instituteSubCourseId.name
+            } : null
+        }));
+
+        return res.status(200).send(
+            response.toJson(messages['en'].common.list_success, {
+                modules: formattedModules,
+                pagination: {
+                    totalRecords: totalRecords,
+                    currentPage: page,
+                    totalPages: Math.ceil(totalRecords / limit),
+                    pageSize: limit
+                }
             })
         );
-        return res.status(200).send(response.toJson(messages['en'].common.list_success, { modules: formattedModules }));
-    }
-    catch (err) {
+
+    } catch (err) {
         console.log(err);
-        const statusCode = err.statusCode || 500;
-        const errMess = err.message || err;
-        return res.status(statusCode).send(response.toJson(errMess));
+        return res.status(500).send(response.toJson(err.message));
     }
-}
+};
 
 // details of module
 const moduleDetails = async (req, res) => {
@@ -1427,7 +1570,7 @@ const moduleDetails = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        
+
         const moduleId = req.params.moduleId;
         const module = await InstituteModulesModel.findOne({
             _id: moduleId,
@@ -1535,28 +1678,57 @@ const expertDropdownList = async (req, res) => {
             filters.status = req.query.status;
         }
 
+        // Search (regex based – safer than $text if text index not configured)
         if (req.query.search) {
-            filters.$text = { $search: req.query.search };
+            filters.$or = [
+                { firstName: { $regex: req.query.search, $options: "i" } },
+                { lastName: { $regex: req.query.search, $options: "i" } },
+                { prefixName: { $regex: req.query.search, $options: "i" } }
+            ];
         }
 
+        // Fetch Experts
         const experts = await expertsModel.Experts.find(
             filters,
-            { _id: 1, name: 1 }
+            {
+                _id: 1,
+                prefixName: 1,
+                firstName: 1,
+                lastName: 1
+            }
         )
-            .sort({ name: 1 })   // optional alphabetical sort
+            .sort({ firstName: 1 }) 
             .lean();
 
+        // Full Name Format 
+        const formattedExperts = experts.map(expert => {
+
+            const fullName = [
+                expert.prefixName,
+                expert.firstName,
+                expert.lastName
+            ]
+                .filter(Boolean)
+                .join(" ");
+
+            return {
+                _id: expert._id,
+                name: fullName
+            };
+        });
+
+        // Response
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.list_success,
-                { experts }
+                { experts: formattedExperts }
             )
         );
 
     } catch (err) {
         console.log(err);
         return res.status(500).send(
-            response.toJson(err.message)
+            response.toJson(messages['en'].common.server_error)
         );
     }
 };
@@ -1587,24 +1759,29 @@ const createLecture = async (req, res) => {
             courseId,
             subCourseId,
             batchId,
-            expertId,
+            moduleId,
             classroomNumber,
             lectureDate,
-            lectureType,
-            projectReviewLecture,
-            sessionStartTime,
-            sessionEndTime,
+            details,
             material,
             createFeedbackForLearner,
-            feedbackForCoordinator
+            feedbackForCoordinator,
+            projectReviewLecture,
+            juryLecture,
+            moduleFinished,
+            submissionRequired,
+            notifyStudents
         } = req.body;
 
+        // Course Validation
         const course = await InstituteCoursesModel.findById(courseId);
         if (!course) {
             return res.status(404).send(
                 response.toJson(messages['en'].instituteCourse.course_not_exist)
             );
         }
+
+        // SubCourse Validation
         if (subCourseId) {
             const subCourse = await InstituteSubCoursesModel.findOne({
                 _id: subCourseId,
@@ -1617,6 +1794,8 @@ const createLecture = async (req, res) => {
                 );
             }
         }
+
+        // Batch Validation
         if (batchId) {
             const batch = await InstituteBatchesModel.findById(batchId);
             if (!batch) {
@@ -1625,27 +1804,48 @@ const createLecture = async (req, res) => {
                 );
             }
         }
-        const expert = await expertsModel.Experts.findById(expertId);
-        if (!expert || expert.isDeleted) {
-            return res.status(404).send(
-                response.toJson(messages['en'].experts.not_exist)
-            );
+
+        // Module Validation
+        if (moduleId) {
+            const module = await InstituteModulesModel.findById(moduleId);
+            if (!module) {
+                return res.status(404).send(
+                    response.toJson(messages['en'].instituteCourse.module_not_exist)
+                );
+            }
         }
 
+        // Experts Validation (Loop for sessions)
+        if (details && details.length > 0) {
+            for (let session of details) {
+                if (session.expertId) {
+                    const expert = await expertsModel.Experts.findById(session.expertId);
+                    if (!expert || expert.isDeleted) {
+                        return res.status(404).send(
+                            response.toJson(messages['en'].experts.not_exist)
+                        );
+                    }
+                }
+            }
+        }
+
+        // Lecture Data 
         const lectureData = {
             courseId,
             subCourseId: subCourseId || null,
             batchId: batchId || null,
-            expertId,
+            moduleId: moduleId || null,
             classroomNumber,
             lectureDate,
-            lectureType,
-            sessionStartTime,
-            sessionEndTime,
+            details: details || [],
             material: material || null,
             createFeedbackForLearner: createFeedbackForLearner || false,
             feedbackForCoordinator: feedbackForCoordinator || null,
             projectReviewLecture: projectReviewLecture || false,
+            juryLecture: juryLecture || false,
+            moduleFinished: moduleFinished || false,
+            submissionRequired: submissionRequired || false,
+            notifyStudents: notifyStudents || false,
             // createdBy: req.user._id
         };
 
@@ -1663,7 +1863,8 @@ const createLecture = async (req, res) => {
     } catch (err) {
         console.log(err);
         const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
+        const errMess = err.message || messages['en'].common.not_exists;
+
         return res.status(statusCode).send(
             response.toJson(errMess)
         );
@@ -1693,29 +1894,33 @@ const updateLecture = async (req, res) => {
         // }
 
         const lectureId = req.params.lectureId;
+
         const {
             courseId,
             subCourseId,
             batchId,
-            expertId,
+            moduleId,
             classroomNumber,
             lectureDate,
-            lectureType,
-            projectReviewLecture,
-            sessionStartTime,
-            sessionEndTime,
+            details,
             material,
             createFeedbackForLearner,
-            feedbackForCoordinator
+            feedbackForCoordinator,
+            projectReviewLecture,
+            juryLecture,
+            moduleFinished,
+            submissionRequired,
+            notifyStudents
         } = req.body;
- 
+
         const lecture = await InstituteLectures.findById(lectureId);
         if (!lecture) {
             return res.status(404).send(
                 response.toJson(messages['en'].instituteCourse.lecture_not_exist)
             );
         }
- 
+
+        // Course Validation
         if (courseId) {
             const course = await InstituteCoursesModel.findById(courseId);
             if (!course) {
@@ -1724,19 +1929,22 @@ const updateLecture = async (req, res) => {
                 );
             }
         }
- 
+
+        // SubCourse Validation
         if (subCourseId) {
             const subCourse = await InstituteSubCoursesModel.findOne({
                 _id: subCourseId,
-                instituteCourseId: courseId
+                instituteCourseId: courseId || lecture.courseId
             });
+
             if (!subCourse) {
                 return res.status(404).send(
                     response.toJson(messages['en'].instituteCourse.subcourse_invalid)
                 );
             }
         }
- 
+
+        // Batch Validation
         if (batchId) {
             const batch = await InstituteBatchesModel.findById(batchId);
             if (!batch) {
@@ -1745,45 +1953,87 @@ const updateLecture = async (req, res) => {
                 );
             }
         }
- 
-        if (expertId) {
-            const expert = await expertsModel.Experts.findById(expertId);
-            if (!expert || expert.isDeleted) {
+
+        // Module Validation
+        if (moduleId) {
+            const module = await InstituteModulesModel.findById(moduleId);
+            if (!module) {
                 return res.status(404).send(
-                    response.toJson(messages['en'].experts.not_exist)
+                    response.toJson(messages['en'].instituteCourse.module_not_exist)
                 );
             }
         }
- 
+
+        // Experts Validation (for updated sessions)
+        if (details && details.length > 0) {
+            for (let session of details) {
+                if (session.expertId) {
+                    const expert = await expertsModel.Experts.findById(session.expertId);
+                    if (!expert || expert.isDeleted) {
+                        return res.status(404).send(
+                            response.toJson(messages['en'].experts.not_exist)
+                        );
+                    }
+                }
+            }
+        }
+
+        // Prepare Updated Data (Model Wise)
         const updatedData = {
-            courseId,
-            subCourseId: subCourseId || lecture.subCourseId,
-            batchId: batchId || lecture.batchId,
-            expertId: expertId || lecture.expertId,
+            courseId: courseId || lecture.courseId,
+            subCourseId: subCourseId !== undefined ? subCourseId : lecture.subCourseId,
+            batchId: batchId !== undefined ? batchId : lecture.batchId,
+            moduleId: moduleId !== undefined ? moduleId : lecture.moduleId,
             classroomNumber: classroomNumber || lecture.classroomNumber,
             lectureDate: lectureDate || lecture.lectureDate,
-            lectureType: lectureType || lecture.lectureType,
-            sessionStartTime: sessionStartTime || lecture.sessionStartTime,
-            sessionEndTime: sessionEndTime || lecture.sessionEndTime,
-            material: material || lecture.material,
-            createFeedbackForLearner: createFeedbackForLearner !== undefined ? createFeedbackForLearner : lecture.createFeedbackForLearner,
-            feedbackForCoordinator: feedbackForCoordinator || lecture.feedbackForCoordinator,
-            projectReviewLecture: projectReviewLecture !== undefined ? projectReviewLecture : lecture.projectReviewLecture,
-            updatedAt: new Date(),
-            // updatedBy: req.user._id
+            details: details || lecture.details,
+            material: material !== undefined ? material : lecture.material,
+            createFeedbackForLearner:
+                createFeedbackForLearner !== undefined
+                    ? createFeedbackForLearner
+                    : lecture.createFeedbackForLearner,
+            feedbackForCoordinator:
+                feedbackForCoordinator !== undefined
+                    ? feedbackForCoordinator
+                    : lecture.feedbackForCoordinator,
+            projectReviewLecture:
+                projectReviewLecture !== undefined
+                    ? projectReviewLecture
+                    : lecture.projectReviewLecture,
+            juryLecture:
+                juryLecture !== undefined
+                    ? juryLecture
+                    : lecture.juryLecture,
+            moduleFinished:
+                moduleFinished !== undefined
+                    ? moduleFinished
+                    : lecture.moduleFinished,
+            submissionRequired:
+                submissionRequired !== undefined
+                    ? submissionRequired
+                    : lecture.submissionRequired,
+            notifyStudents:
+                notifyStudents !== undefined
+                    ? notifyStudents
+                    : lecture.notifyStudents,
+            updatedAt: new Date()
         };
 
-        await InstituteLectures.updateOne({ _id: lectureId }, { $set: updatedData });
+        await InstituteLectures.updateOne(
+            { _id: lectureId },
+            { $set: updatedData }
+        );
 
         return res.status(200).send(
-            response.toJson(messages['en'].common.update_success, { lecture: updatedData })
+            response.toJson(messages['en'].common.update_success, {
+                lecture: updatedData
+            })
         );
+
     } catch (err) {
         console.log(err);
-        const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
-        return res.status(statusCode).send(
-            response.toJson(errMess)
+        return res.status(500).send(
+            response.toJson(messages['en'].common.not_exists)
         );
     }
 };
@@ -1809,42 +2059,150 @@ const listLecture = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
+
+        // PAGINATION 
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // Sorting
+        const sortBy = req.query.sortBy || "lectureDate";
+        const sortOrder = req.query.sort === "asc" ? 1 : -1;
+
+        const sortObject = {};
+        sortObject[sortBy] = sortOrder;
+
+        // Filter
         const filters = { isDeleted: false };
 
-        if (req.query.courseId) filters.courseId = req.query.courseId;
-        if (req.query.subCourseId) filters.subCourseId = req.query.subCourseId;
-        if (req.query.batchId) filters.batchId = req.query.batchId;
-        if (req.query.expertId) filters.expertId = req.query.expertId;
+        if (req.query.courseId)
+            filters.courseId = req.query.courseId;
 
+        if (req.query.subCourseId)
+            filters.subCourseId = req.query.subCourseId;
+
+        if (req.query.batchId)
+            filters.batchId = req.query.batchId;
+
+        if (req.query.moduleId)
+            filters.moduleId = req.query.moduleId;
+
+        if (req.query.expertId)
+            filters["details.expertId"] = req.query.expertId;
+
+        if (req.query.lectureDate)
+            filters.lectureDate = new Date(req.query.lectureDate);
+
+        if (req.query.createFeedbackForLearner)
+            filters.createFeedbackForLearner = req.query.createFeedbackForLearner === "true";
+
+        // Search 
         if (req.query.search) {
-            filters.classroomNumber = {
-                $regex: req.query.search,
-                $options: "i"
-            };
+            filters.$or = [
+                { classroomNumber: { $regex: req.query.search, $options: "i" } },
+                { "details.topic": { $regex: req.query.search, $options: "i" } }
+            ];
         }
 
-        const lectures = await InstituteLectures.find(filters)
-            .populate("batchId", "batchName")
-            .populate("expertId", "name")
-            .sort({ lectureDate: -1 })
-            .lean();
+        // QUERY
+        const [lectures, total] = await Promise.all([
 
-        const formattedLectures = lectures.map((lecture) => ({
-            _id: lecture._id,
-            date: lecture.lectureDate,
-            batchName: lecture.batchId?.batchName || null,
-            expertName: lecture.expertId?.name || null,
-            type: lecture.lectureType,
-            time: `${lecture.sessionStartTime} - ${lecture.sessionEndTime}`,
-            classroomNumber: lecture.classroomNumber,
-            projectReviewLecture: lecture.projectReviewLecture,
-            createFeedbackForLearner: lecture.createFeedbackForLearner
-        }));
+            InstituteLectures.find(filters)
+                .populate("courseId", "name")
+                .populate("subCourseId", "name")
+                .populate("batchId", "batchName")
+                .populate("moduleId", "name")
+                .populate("details.expertId", "prefixName firstName lastName")
+                .sort(sortObject)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+
+            InstituteLectures.countDocuments(filters)
+        ]);
+
+        // Response
+        const formattedLectures = lectures.map((lecture) => {
+
+            const firstSession = lecture.details?.[0];
+
+            const responseObj = {
+                _id: lecture._id,
+                lectureDate: lecture.lectureDate,
+                classroomNumber: lecture.classroomNumber,
+
+                course: lecture.courseId ? {
+                    _id: lecture.courseId._id,
+                    name: lecture.courseId.name
+                } : undefined,
+
+                subCourse: lecture.subCourseId ? {
+                    _id: lecture.subCourseId._id,
+                    name: lecture.subCourseId.name
+                } : undefined,
+
+                batch: lecture.batchId ? {
+                    _id: lecture.batchId._id,
+                    name: lecture.batchId.batchName
+                } : undefined,
+
+                projectReviewLecture: lecture.projectReviewLecture,
+                createFeedbackForLearner: lecture.createFeedbackForLearner
+            };
+
+            if (lecture.moduleId) {
+                responseObj.module = {
+                    _id: lecture.moduleId._id,
+                    name: lecture.moduleId.name
+                };
+            }
+
+            if (firstSession) {
+
+                if (firstSession?.expertId) {
+
+                    const expert = firstSession.expertId;
+
+                    const fullName = [
+                        expert.prefixName,
+                        expert.firstName,
+                        expert.lastName
+                    ].filter(Boolean).join(" ");
+
+                    responseObj.expert = {
+                        _id: expert._id,
+                        name: fullName
+                    };
+                }
+
+                if (firstSession.topic)
+                    responseObj.topic = firstSession.topic;
+
+                if (firstSession.lectureType)
+                    responseObj.lectureType = firstSession.lectureType;
+
+                if (firstSession.sessionStartTime)
+                    responseObj.sessionStartTime = firstSession.sessionStartTime;
+
+                if (firstSession.sessionEndTime)
+                    responseObj.sessionEndTime = firstSession.sessionEndTime;
+            }
+
+            return responseObj;
+        });
 
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.list_success,
-                { lectures: formattedLectures }
+                {
+                    lectures: formattedLectures,
+                    pagination: {
+                        totalRecords: total,
+                        currentPage: page,
+                        totalPages: Math.ceil(total / limit),
+                        pageSize: limit
+                    }
+                }
             )
         );
 
@@ -1878,51 +2236,69 @@ const lectureDetails = async (req, res) => {
         //     );
         // }
         const lectureId = req.params.lectureId;
+
         const lecture = await InstituteLectures.findOne({
             _id: lectureId,
             isDeleted: false
-        })  
+        })
             .populate("courseId", "name")
             .populate("subCourseId", "name")
             .populate("batchId", "batchName")
-            .populate("expertId", "name")
+            .populate("moduleId", "name")
+            .populate("details.expertId", "name")
             .lean();
+
         if (!lecture) {
             return res.status(404).send(
-                response.toJson(messages['en'].instituteCourse.lecture_not_exist)
+                response.toJson(messages['en'].common.not_exists)
             );
         }
+
         const formattedResponse = {
             _id: lecture._id,
             courseName: lecture.courseId?.name || null,
             subCourseName: lecture.subCourseId?.name || null,
             batchName: lecture.batchId?.batchName || null,
-            expertName: lecture.expertId?.name || null,
+            moduleName: lecture.moduleId?.name || null,
             classroomNumber: lecture.classroomNumber,
             lectureDate: lecture.lectureDate,
-            lectureType: lecture.lectureType,
+
+            // session details
+            sessions: lecture.details?.map(session => ({
+                expertName: session?.expertId?.name || null,
+                topic: session.topic,
+                lectureType: session.lectureType,
+                sessionStartTime: session.sessionStartTime,
+                sessionEndTime: session.sessionEndTime
+            })) || [],
+
             projectReviewLecture: lecture.projectReviewLecture,
-            sessionStartTime: lecture.sessionStartTime,
-            sessionEndTime: lecture.sessionEndTime,
+            juryLecture: lecture.juryLecture,
+            moduleFinished: lecture.moduleFinished,
+            submissionRequired: lecture.submissionRequired,
+            notifyStudents: lecture.notifyStudents,
+
             material: lecture.material,
             createFeedbackForLearner: lecture.createFeedbackForLearner,
             feedbackForCoordinator: lecture.feedbackForCoordinator,
+
+            status: lecture.status,
             isDeleted: lecture.isDeleted,
             createdAt: lecture.createdAt,
             updatedAt: lecture.updatedAt
         };
+
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.details_success,
                 formattedResponse
             )
         );
+
     } catch (err) {
         console.log(err);
-        const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
-        return res.status(statusCode).send(
-            response.toJson(errMess)
+        return res.status(500).send(
+            response.toJson(messages['en'].common.not_exists)
         );
     }
 };
@@ -1997,6 +2373,7 @@ module.exports = {
     courseDropdownList,
     subCourseDropdownList,
     batchDropdownList,
+    moduleDropdownList,
     createModule,
     updateModule,
     listModule,

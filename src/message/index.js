@@ -29,6 +29,7 @@ const message = {
       subcourse_invalid: 'Subcourse is invalid,please try with other.',
       course_not_exist: 'Course not exists,please try with other.',
       batch_not_exist: 'Batch not exists,please try with other.',
+      module_not_exist: 'Module not exists,please try with other.',
       start_end_time_invalid: 'Start time must be before end time',
       course_exists: 'Course already exists,please try with other.',
       batch_has_lectures: 'Batch has lectures, please delete lectures before deleting batch.',
@@ -36,6 +37,7 @@ const message = {
     instituteStudent: {
       batch_not_exist: 'Batch not exists,please try with other.',
       email_exists: 'Email already exists,please try with other.',
+      enrollment_no_exists: 'Enrollment number already exists,please try with other.',
       create_success: 'Student created successfully.',
       not_exists: 'Student not exists,please try with other.'
     },

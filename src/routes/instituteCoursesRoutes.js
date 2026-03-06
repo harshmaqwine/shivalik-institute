@@ -48,6 +48,8 @@ router.get("/sub-course/dropdown-list", /*[superAdminVerifyToken],*/ InstituteCo
 
 router.get("/batch/dropdown-list", /*[superAdminVerifyToken],*/ InstituteCourseValidation.batchDropdownList, InstituteCourseController.batchDropdownList);
 
+router.get("/module/dropdown-list", /*[superAdminVerifyToken],*/ InstituteCourseValidation.moduleDropdownList, InstituteCourseController.moduleDropdownList);
+
 // institute modules
 router.post("/module/create", /*[superAdminVerifyToken],*/ InstituteCourseValidation.createModule, InstituteCourseController.createModule);
 router.put("/module/update/:moduleId", /*[superAdminVerifyToken],*/ InstituteCourseValidation.updateModule, InstituteCourseController.updateModule);

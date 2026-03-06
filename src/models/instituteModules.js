@@ -68,6 +68,7 @@ const InstituteModulesSchema = new Schema({
     }
 });
 
+// indexes used for filtering/search
 InstituteModulesSchema.index({ instituteCourseId: 1, instituteSubCourseId: 1, moduleNumber: 1 });
 
 InstituteModulesSchema.methods.toJSON = function () {

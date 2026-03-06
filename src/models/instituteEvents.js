@@ -56,8 +56,7 @@ const InstituteEventSchema = new Schema({
 InstituteEventSchema.index({ eventName: 1 });
 InstituteEventSchema.index({ eventDate: -1 });
 InstituteEventSchema.index({ location: 1 });
-InstituteEventSchema.index({ isDeleted: 1 });
-// optional text index for generic search
+InstituteEventSchema.index({ isDeleted: 1 }); 
 InstituteEventSchema.index({ eventName: 'text', location: 'text' });
 
 InstituteEventSchema.methods.toJSON = function () {

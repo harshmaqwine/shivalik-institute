@@ -52,12 +52,11 @@ const InstituteAssetSchema = new Schema({
     }
 })
 
-// define indexes used by controllers/filters
+// indexes used for filtering/search
 InstituteAssetSchema.index({ assetNumber: 1 });
 InstituteAssetSchema.index({ assetType: 1 });
 InstituteAssetSchema.index({ assetName: 1 });
-InstituteAssetSchema.index({ isDeleted: 1 });
-// text index to support generic search
+InstituteAssetSchema.index({ isDeleted: 1 }); 
 InstituteAssetSchema.index({ assetNumber: 'text', assetType: 'text', assetName: 'text' });
 
 InstituteAssetSchema.methods.toJSON = function () {

@@ -1,5 +1,5 @@
 const e = require("express");
-const { check } = require("express-validator");
+const { check, query, param } = require("express-validator");
 
 exports.create = [
   check('name').not().isEmpty().withMessage('Name is requied'),
@@ -52,13 +52,45 @@ exports.subCourseUpdate = [
 
 exports.subCourseDelete = [
   check('subCourseId').not().isEmpty().withMessage('Sub Course id is requied'),
-];
+]; 
 
-exports.subCourseList = [
-  check('page').not().isEmpty().withMessage('Page is requied').toInt().withMessage('Page is allowed Only numbers'),
-  check('sortBy').optional(),
-  check('sort').optional(),
-  check('instituteCourseId').optional(),
+exports.subCourseList = [ 
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Page must be a positive number')
+    .toInt(),
+ 
+  query('limit')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Limit must be a positive number')
+    .toInt(),
+ 
+  query('sortBy')
+    .optional()
+    .isIn(['name', 'price', 'discount', 'status', 'createdAt'])
+    .withMessage('Invalid sortBy field'),
+ 
+  query('sort')
+    .optional()
+    .isIn(['asc', 'desc'])
+    .withMessage('Sort must be asc or desc'),
+ 
+  query('instituteCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteCourseId'),
+ 
+  query('status')
+    .optional()
+    .isIn(['ACTIVE', 'INACTIVE'])
+    .withMessage('Invalid status value'),
+ 
+  query('search')
+    .optional()
+    .isString()
+    .trim()
 ];
 
 exports.list = [
@@ -137,6 +169,10 @@ exports.batchCreate = [
       }
       return true;
     }),
+  // optional integer days for app access expiry after batch complete
+  check('appAccessExpireDays').optional().isInt({ min: 0 }).withMessage('App Access Expire Days must be a non-negative integer'),
+  // optional batch size
+  check('batchSize').optional().isInt({ min: 0 }).withMessage('Batch Size must be a non-negative integer'),
 ];
 
 exports.batchUpdate = [
@@ -180,29 +216,54 @@ exports.batchUpdate = [
       }
       return true;
     }),
+  // optional integer days for app access expiry after batch complete
+  check('appAccessExpireDays').optional().isInt({ min: 0 }).withMessage('App Access Expire Days must be a non-negative integer'),
 ];
 
 exports.batchDelete = [
   check('batchId').not().isEmpty().withMessage('Batch id is required'),
 ];
 
-exports.batchList = [
-  check('page').not().isEmpty().withMessage('Page is required').toInt().withMessage('Page is allowed Only numbers'),
-  check('type').optional().isIn(['UPCOMING', 'ONGOING', 'COMPLETED']).withMessage('Type must be one of the following: UPCOMING, ONGOING, COMPLETED'),
-  check('instituteCourseId').optional(),
-  check('instituteSubCourseId')
+exports.batchList = [ 
+  query('page')
     .optional()
+    .isInt({ min: 1 })
+    .withMessage('Page must be a positive number')
+    .toInt(),
+ 
+  query('limit')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Limit must be a positive number')
+    .toInt(), 
+ 
+  query('instituteCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteCourseId'),
+ 
+  query('instituteSubCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteSubCourseId')
     .custom((value, { req }) => {
-      if (value && !req.body.instituteCourseId && !req.query.instituteCourseId) {
-        throw new Error('instituteCourseId is required');
+      if (value && !req.query.instituteCourseId) {
+        throw new Error('instituteCourseId is required when instituteSubCourseId is provided');
       }
       return true;
     }),
-  check('sortBy').optional(),
-  check('sort').optional(),
-  check('pageSize').optional(),
-];
+ 
+  query('sortBy')
+    .optional()
+    .isIn(['batchName', 'startDate', 'createdAt'])
+    .withMessage('Invalid sortBy field'),
+ 
+  query('sort')
+    .optional()
+    .isIn(['asc', 'desc'])
+    .withMessage('Sort must be asc or desc')
 
+];
 exports.batchDetails = [
   check('batchId').not().isEmpty().withMessage('Batch id is required'),
 ];
@@ -214,6 +275,21 @@ exports.courseDropdownList = [
 exports.batchDropdownList = [
   check('instituteCourseId').not().isEmpty().withMessage('Institute Course id is required'),
   check('instituteSubCourseId').optional(),
+];
+
+exports.moduleDropdownList = [
+
+  query('instituteCourseId')
+    .notEmpty()
+    .withMessage('Institute Course id is required')
+    .isMongoId()
+    .withMessage('Invalid Institute Course id'),
+
+  query('instituteSubCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid Institute Sub Course id'),
+
 ];
 
 exports.subCourseDropdownList = [
@@ -260,21 +336,59 @@ exports.deleteModule = [
   check('moduleId').not().isEmpty().withMessage('Module id is required'),
 ];
 
-exports.listModule = [
-  check('page').not().isEmpty().withMessage('Page is required').toInt().withMessage('Page is allowed Only numbers'),
-  check('sortBy').optional(),
-  check('sort').optional(),
-  check('instituteCourseId').optional(),
-  check('instituteSubCourseId').optional(),
-  check('batchId').optional(),
-  check('moduleNumber').optional().isInt().withMessage('Module number must be an integer').toInt(),
-  check('name').optional(),
-  check('coordinator').optional(),  
-  check('status').optional().isIn(['ACTIVE', 'INACTIVE']).withMessage('Status must be either ACTIVE or INACTIVE'),
-  check('createdBy').optional().isMongoId().withMessage('Invalid createdBy user id'),
-  check('updatedBy').optional().isMongoId().withMessage('Invalid updatedBy user id'),
-  check('createdAt').optional().isISO8601().withMessage('Invalid createdAt date format'),
-  check('updatedAt').optional().isISO8601().withMessage('Invalid updatedAt date format'),
+exports.listModule = [ 
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Page must be a positive number')
+    .toInt(),
+ 
+  query('limit')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Limit must be a positive number')
+    .toInt(),
+ 
+  query('sortBy')
+    .optional()
+    .isIn(['name', 'moduleNumber', 'status', 'createdAt'])
+    .withMessage('Invalid sortBy field'),
+ 
+  query('sort')
+    .optional()
+    .isIn(['asc', 'desc'])
+    .withMessage('Sort must be asc or desc'),
+ 
+  query('instituteCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteCourseId'),
+
+  query('instituteSubCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteSubCourseId'),
+
+  query('moduleNumber')
+    .optional()
+    .isInt()
+    .withMessage('Module number must be an integer')
+    .toInt(),
+
+  query('status')
+    .optional()
+    .isIn(['ACTIVE', 'INACTIVE'])
+    .withMessage('Status must be ACTIVE or INACTIVE'),
+
+  query('createdBy')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid createdBy user id'),
+
+  query('search')
+    .optional()
+    .isString()
+    .trim()
 ];
 
 exports.moduleDetails = [
@@ -287,7 +401,6 @@ exports.expertDropdownList = [
 ];
 
 exports.createLecture = [
-
   check('courseId')
     .notEmpty()
     .withMessage('Course id is required')
@@ -304,11 +417,10 @@ exports.createLecture = [
     .isMongoId()
     .withMessage('Invalid batch id'),
 
-  check('expertId')
-    .notEmpty()
-    .withMessage('Expert id is required')
+  check('moduleId')
+    .optional()
     .isMongoId()
-    .withMessage('Invalid expert id'),
+    .withMessage('Invalid module id'),
 
   check('classroomNumber')
     .notEmpty()
@@ -319,23 +431,63 @@ exports.createLecture = [
     .withMessage('Lecture date is required')
     .isISO8601()
     .withMessage('Invalid lecture date format'),
+ 
+  check('details')
+    .isArray({ min: 1 })
+    .withMessage('At least one session is required'),
 
-  check('lectureType')
+  check('details.*.expertId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid expert id'),
+
+  check('details.*.topic')
     .notEmpty()
-    .withMessage('Lecture type is required'),
+    .withMessage('Session topic is required'),
 
-  check('sessionStartTime')
+  check('details.*.lectureType')
+    .notEmpty()
+    .withMessage('Lecture type is required')
+    .isIn(["Guest", "Module", "Site Visit", "Master Class"])
+    .withMessage('Invalid lecture type'),
+
+  check('details.*.sessionStartTime')
     .notEmpty()
     .withMessage('Session start time is required'),
 
-  check('sessionEndTime')
+  check('details.*.sessionEndTime')
     .notEmpty()
     .withMessage('Session end time is required'),
-
+ 
   check('createFeedbackForLearner')
     .optional()
     .isBoolean()
     .withMessage('createFeedbackForLearner must be boolean'),
+
+  check('projectReviewLecture')
+    .optional()
+    .isBoolean()
+    .withMessage('projectReviewLecture must be boolean'),
+
+  check('juryLecture')
+    .optional()
+    .isBoolean()
+    .withMessage('juryLecture must be boolean'),
+
+  check('moduleFinished')
+    .optional()
+    .isBoolean()
+    .withMessage('moduleFinished must be boolean'),
+
+  check('submissionRequired')
+    .optional()
+    .isBoolean()
+    .withMessage('submissionRequired must be boolean'),
+
+  check('notifyStudents')
+    .optional()
+    .isBoolean()
+    .withMessage('notifyStudents must be boolean'),
 
   check('feedbackForCoordinator')
     .optional()
@@ -383,24 +535,59 @@ exports.updateLecture = [
     .isBoolean()
     .withMessage('createFeedbackForLearner must be boolean'),
 ];
+
 exports.deleteLecture = [
   check('lectureId').not().isEmpty().withMessage('Lecture id is required'),
 ];
 
 exports.listLecture = [
-  check('page').not().isEmpty().withMessage('Page is required').toInt().withMessage('Page is allowed Only numbers'),
-  check('sortBy').optional(),
-  check('sort').optional(),
-  check('instituteCourseId').optional(),
-  check('instituteSubCourseId').optional(),
-  check('expertId').optional(),
-  check('classroomNumber').optional(),
-  check('lectureDate').optional().isISO8601().withMessage('Invalid lecture date format'),
-  check('lectureType').optional(),
-  check('createFeedbackForLearner').optional().isBoolean().withMessage('createFeedbackForLearner must be a boolean'),
-  check('feedbackForCoordinator').optional(),
+
+    query('page')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Page must be a number'),
+
+    query('limit')
+        .optional()
+        .isInt({ min: 1 })
+        .withMessage('Limit must be a number'),
+
+    query('sort')
+        .optional()
+        .isIn(['asc', 'desc'])
+        .withMessage('Sort must be asc or desc'),
+
+    query('courseId')
+        .optional()
+        .isMongoId()
+        .withMessage('Invalid course id'),
+
+    query('subCourseId')
+        .optional()
+        .isMongoId()
+        .withMessage('Invalid sub course id'),
+
+    query('batchId')
+        .optional()
+        .isMongoId()
+        .withMessage('Invalid batch id'),
+
+    query('moduleId')
+        .optional()
+        .isMongoId()
+        .withMessage('Invalid module id'),
+
+    query('expertId')
+        .optional()
+        .isMongoId()
+        .withMessage('Invalid expert id'),
+
 ];
 
 exports.lectureDetails = [
-  check('lectureId').not().isEmpty().withMessage('Lecture id is required'),
+  param('lectureId')
+    .notEmpty()
+    .withMessage('Lecture id is required')
+    .isMongoId()
+    .withMessage('Invalid lecture id'),
 ];
