@@ -65,4 +65,5 @@ router.delete("/lecture/delete/:lectureId", /*[superAdminVerifyToken],*/ Institu
 router.get("/lecture/list", /*[superAdminVerifyToken],*/ InstituteCourseValidation.listLecture, InstituteCourseController.listLecture);
 router.get("/lecture/details/:lectureId", /*[superAdminVerifyToken],*/ InstituteCourseValidation.lectureDetails, InstituteCourseController.lectureDetails);
 
+router.patch("/status/:courseId", InstituteCourseValidation.updateStatus, InstituteCourseController.updateStatus);
 module.exports = router;

@@ -12,10 +12,10 @@ const InstituteModulesSchema = new Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'institutesubcourses'
     },
-    moduleNumber: {
-        type: Number,
-        required: true
-    },
+    moduleNumber: { 
+        type: String, 
+        default: ''
+    }, 
     name: {
         type: String,
         default: ''

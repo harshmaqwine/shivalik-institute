@@ -8,6 +8,7 @@ const InstituteCoursesModel = require("../models/instituteCourses.js");
 const InstituteBatchesModel = require("../models/instituteBatches.js");
 const { InstituteModulesModel } = require('../models/instituteModules.js');
 const { InstituteLectures } = require("../models/instituteLectures.js");
+const InstituteStudentsModel = require("../models/instituteStudents.js");
 const expertsModel = require("../models/instituteExperts.js");
 
 // create course.
@@ -1969,7 +1970,6 @@ const updateLecture = async (req, res) => {
 };
 
 // get lecture list.
-// get lecture list.
 const listLecture = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -2018,8 +2018,10 @@ const listLecture = async (req, res) => {
         // query with pagination
         const [lectures, total] = await Promise.all([
             InstituteLectures.find(filters)
+                .populate("courseId", "name")
+                .populate("subCourseId", "name")
                 .populate("batchId", "batchName")
-                .populate("expertId", "prefixName firstName lastName fullName")
+                .populate("expertId", "prefixName firstName lastName")
                 .sort(sorting)
                 .skip(skip)
                 .limit(limit)
@@ -2029,18 +2031,39 @@ const listLecture = async (req, res) => {
 
         const formattedLectures = lectures.map((lecture) => ({
             _id: lecture._id,
-            date: lecture.lectureDate,
+
+            course: lecture.courseId ? {
+                _id: lecture.courseId._id,
+                name: lecture.courseId.name
+            } : null,
+
+            subCourse: lecture.subCourseId ? {
+                _id: lecture.subCourseId._id,
+                name: lecture.subCourseId.name
+            } : null,
+
             batch: lecture.batchId ? {
                 _id: lecture.batchId._id,
                 name: lecture.batchId.batchName
             } : null,
+
             expert: lecture.expertId ? {
                 _id: lecture.expertId._id,
                 name: `${lecture.expertId.prefixName}. ${lecture.expertId.firstName} ${lecture.expertId.lastName}`
             } : null,
-            type: lecture.lectureType,
-            startTime: lecture.sessionStartTime,
-            endTime: lecture.sessionEndTime
+
+            classroomNumber: lecture.classroomNumber,
+            lectureDate: lecture.lectureDate,
+            lectureType: lecture.lectureType,
+            projectReviewLecture: lecture.projectReviewLecture,
+            sessionStartTime: lecture.sessionStartTime,
+            sessionEndTime: lecture.sessionEndTime,
+            material: lecture.material,
+            createFeedbackForLearner: lecture.createFeedbackForLearner,
+            feedbackForCoordinator: lecture.feedbackForCoordinator,
+            status: lecture.status,
+            createdAt: lecture.createdAt,
+            updatedAt: lecture.updatedAt
         }));
 
         return res.status(200).send(
@@ -2201,6 +2224,65 @@ const deleteLecture = async (req, res) => {
     }
 }
 
+// change status of course, and cascade the status to all related entities (sub-course, batch, module, lecture, student) if course is inactivated
+const updateStatus = async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).send(response.toJson(errors.errors[0].msg));
+    }
+
+    const { courseId } = req.params;
+    const { status } = req.body; // 'ACTIVE' or 'INACTIVE'
+
+    try {
+        // Check if course exists
+        const course = await InstituteCoursesModel.findById(courseId);
+        if (!course) {
+            return res.status(404).send(response.toJson(messages['en'].instituteCourse.course_not_exist));
+        }
+
+        // Update the main Course status
+        await InstituteCoursesModel.findByIdAndUpdate(courseId, { 
+            status, 
+            updatedAt: new Date() 
+        });
+
+        // If status is INACTIVE, cascade to all child entities
+        if (status === 'INACTIVE') {
+            const query = { instituteCourseId: courseId };
+            const lectureQuery = { courseId: courseId };  
+            const studentQuery = { CourseId: courseId }; 
+
+            await Promise.all([
+                // Update Sub-Courses
+                InstituteSubCoursesModel.updateMany(query, { status: 'INACTIVE' }),
+                
+                // Update Batches
+                InstituteBatchesModel.updateMany(query, { status: 'INACTIVE' }),
+                
+                // Update Modules
+                InstituteModulesModel.updateMany(query, { status: 'INACTIVE' }),
+                
+                // Update Lectures
+                InstituteLectures.updateMany(lectureQuery, { status: 'INACTIVE' }),
+                
+                // Update Students
+                InstituteStudentsModel.updateMany(studentQuery, { status: 'INACTIVE' })
+            ]);
+        }
+
+        return res.status(200).send(
+            response.toJson(messages['en'].common.update_success, { 
+                message: `Course and related entities marked as ${status}` 
+            })
+        );
+
+    } catch (err) {
+        console.error("Error in patchStatus:", err);
+        return res.status(500).send(response.toJson(err.message || err));
+    }
+};
+
 module.exports = {
     create,
     updateCourse,
@@ -2234,5 +2316,6 @@ module.exports = {
     updateLecture,
     listLecture,
     lectureDetails,
-    deleteLecture
+    deleteLecture,
+    updateStatus
 }

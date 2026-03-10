@@ -52,41 +52,41 @@ exports.subCourseUpdate = [
 
 exports.subCourseDelete = [
   check('subCourseId').not().isEmpty().withMessage('Sub Course id is requied'),
-]; 
+];
 
-exports.subCourseList = [ 
+exports.subCourseList = [
   query('page')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Page must be a positive number')
     .toInt(),
- 
+
   query('limit')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Limit must be a positive number')
     .toInt(),
- 
+
   query('sortBy')
     .optional()
     .isIn(['name', 'price', 'discount', 'status', 'createdAt'])
     .withMessage('Invalid sortBy field'),
- 
+
   query('sort')
     .optional()
     .isIn(['asc', 'desc'])
     .withMessage('Sort must be asc or desc'),
- 
+
   query('instituteCourseId')
     .optional()
     .isMongoId()
     .withMessage('Invalid instituteCourseId'),
- 
+
   query('status')
     .optional()
     .isIn(['ACTIVE', 'INACTIVE'])
     .withMessage('Invalid status value'),
- 
+
   query('search')
     .optional()
     .isString()
@@ -143,12 +143,12 @@ exports.batchCreate = [
   check('orientationDate').not().isEmpty().withMessage('Orientation Date is required')
     .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Orientation Date must be in format YYYY-MM-DD'),
 
-  // Format YYYY-MM-DD needed & Registration end date must be on or before start date
+  // Format YYYY-MM-DD needed & registrationEndDate should NOT be after startDate
   check('registrationEndDate')
     .not().isEmpty().withMessage('Registration End Date is required')
     .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Registration End Date must be in format YYYY-MM-DD')
     .custom((registrationEndDate, { req }) => {
-      if (req.body.startDate && new Date(registrationEndDate) < new Date(req.body.startDate)) {
+      if (req.body.startDate && new Date(registrationEndDate) > new Date(req.body.startDate)) {
         throw new Error("Registration end date must be on or before start date");
       }
       return true;
@@ -190,12 +190,12 @@ exports.batchUpdate = [
   check('orientationDate').not().isEmpty().withMessage('Orientation Date is required')
     .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Orientation Date must be in format YYYY-MM-DD'),
 
-  // Format YYYY-MM-DD needed & Registration end date must be on or before start date
+  // Format YYYY-MM-DD needed & registrationEndDate should NOT come after startDate
   check('registrationEndDate')
     .optional()
     .matches(/^\d{4}-\d{2}-\d{2}$/).withMessage('Registration End Date must be in format YYYY-MM-DD')
     .custom((registrationEndDate, { req }) => {
-      if (req.body.startDate && new Date(registrationEndDate) < new Date(req.body.startDate)) {
+      if (req.body.startDate && new Date(registrationEndDate) > new Date(req.body.startDate)) {
         throw new Error("Registration end date must be on or before start date");
       }
       return true;
@@ -224,24 +224,24 @@ exports.batchDelete = [
   check('batchId').not().isEmpty().withMessage('Batch id is required'),
 ];
 
-exports.batchList = [ 
+exports.batchList = [
   query('page')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Page must be a positive number')
     .toInt(),
- 
+
   query('limit')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Limit must be a positive number')
-    .toInt(), 
- 
+    .toInt(),
+
   query('instituteCourseId')
     .optional()
     .isMongoId()
     .withMessage('Invalid instituteCourseId'),
- 
+
   query('instituteSubCourseId')
     .optional()
     .isMongoId()
@@ -252,12 +252,12 @@ exports.batchList = [
       }
       return true;
     }),
- 
+
   query('sortBy')
     .optional()
     .isIn(['batchName', 'startDate', 'createdAt'])
     .withMessage('Invalid sortBy field'),
- 
+
   query('sort')
     .optional()
     .isIn(['asc', 'desc'])
@@ -307,7 +307,8 @@ exports.createModule = [
 
   check('moduleNumber')
     .optional()
-    .isInt().withMessage('Module number must be an integer') 
+    .isString().withMessage('added module number')
+    .trim()
     .toInt(),
 
   check('name')
@@ -319,46 +320,47 @@ exports.createModule = [
   check('coordinator').optional(),
 ];
 
-exports.updateModule = [  
+exports.updateModule = [
   check('moduleId').not().isEmpty().withMessage('Module id is required'),
   check('instituteCourseId').not().isEmpty().withMessage('Institute Course id is required'),
   check('instituteSubCourseId').optional(),
   check('moduleNumber')
     .optional()
-    .isInt().withMessage('Module number must be an integer')
+    .isString().withMessage('added module number')
+    .trim()
     .toInt(),
   check('name').optional(),
   check('description').optional(),
   check('materialLink').optional(),
-];    
+];
 
 exports.deleteModule = [
   check('moduleId').not().isEmpty().withMessage('Module id is required'),
 ];
 
-exports.listModule = [ 
+exports.listModule = [
   query('page')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Page must be a positive number')
     .toInt(),
- 
+
   query('limit')
     .optional()
     .isInt({ min: 1 })
     .withMessage('Limit must be a positive number')
     .toInt(),
- 
+
   query('sortBy')
     .optional()
     .isIn(['name', 'moduleNumber', 'status', 'createdAt'])
     .withMessage('Invalid sortBy field'),
- 
+
   query('sort')
     .optional()
     .isIn(['asc', 'desc'])
     .withMessage('Sort must be asc or desc'),
- 
+
   query('instituteCourseId')
     .optional()
     .isMongoId()
@@ -372,7 +374,7 @@ exports.listModule = [
   query('moduleNumber')
     .optional()
     .isInt()
-    .withMessage('Module number must be an integer')
+    .withMessage('Module number')
     .toInt(),
 
   query('status')
@@ -395,8 +397,8 @@ exports.moduleDetails = [
   check('moduleId').not().isEmpty().withMessage('Module id is required'),
 ];
 
-exports.expertDropdownList = [ 
-  check('name').optional(), 
+exports.expertDropdownList = [
+  check('name').optional(),
   check('status').optional().isIn(['ACTIVE', 'INACTIVE']).withMessage('Status must be either ACTIVE or INACTIVE'),
 ];
 
@@ -561,4 +563,11 @@ exports.listLecture = [
 
 exports.lectureDetails = [
   check('lectureId').not().isEmpty().withMessage('Lecture id is required'),
+];
+
+exports.updateStatus = [
+  param('courseId').isMongoId().withMessage('Invalid Course ID'),
+  check('status')
+    .notEmpty().withMessage('Status is required')
+    .isIn(['ACTIVE', 'INACTIVE']).withMessage('Status must be ACTIVE or INACTIVE'),
 ];
