@@ -5,12 +5,13 @@ exports.create = [
         .optional()
         .isMongoId().withMessage('Course Id must be a valid MongoDB ObjectId'),
     check('batchId')
-        .notEmpty().withMessage('Batch Id is required')
-        .isMongoId().withMessage('Batch Id must be a valid MongoDB ObjectId'),
+        .optional({ nullable: true })
+        .isMongoId()
+        .withMessage('Batch Id must be a valid MongoDB ObjectId'),
     check('prefixName')
-        .notEmpty().withMessage('Prefix is required')
+        .optional({ nullable: true, checkFalsy: true })
         .customSanitizer(val => typeof val === 'string' ? val.toUpperCase() : val)
-        .isIn(['MR','MRS','MISS','DR','CA','AR','ADV']).withMessage('Prefix must be one of MR, MRS, MISS, DR, CA, AR, ADV'),
+        .isIn(['MR', 'MRS', 'MISS', 'DR', 'CA', 'AR', 'ADV']).withMessage('Prefix must be one of MR, MRS, MISS, DR, CA, AR, ADV'),
     check('firstName')
         .notEmpty().withMessage('First name is required')
         .isLength({ max: 100 }).withMessage('First name must be at most 100 characters long'),
@@ -30,7 +31,7 @@ exports.create = [
     check('gender')
         .notEmpty().withMessage('Gender is required')
         .customSanitizer(val => typeof val === 'string' ? val.toUpperCase() : val)
-        .isIn(['MALE','FEMALE','OTHER']).withMessage('Gender must be one of MALE, FEMALE or OTHER'),
+        .isIn(['MALE', 'FEMALE', 'OTHER']).withMessage('Gender must be one of MALE, FEMALE or OTHER'),
     check('age')
         .notEmpty().withMessage('Age is required')
         .isInt({ min: 0 }).withMessage('Age must be a non-negative integer'),
@@ -46,10 +47,11 @@ exports.create = [
         .isISO8601().withMessage('Course start date must be a valid date'),
 ];
 
-exports.list = [ 
+exports.list = [
     check('batchId')
-        .optional()
-        .isMongoId().withMessage('Batch Id must be a valid MongoDB ObjectId'),
+        .optional({ nullable: true })
+        .isMongoId()
+        .withMessage('Batch Id must be a valid MongoDB ObjectId'),
     check('status')
         .optional()
         .isIn(['active', 'inactive']).withMessage('Status must be either active or inactive'),
@@ -94,8 +96,9 @@ exports.update = [
         .isMongoId().withMessage('Invalid Student Id'),
 
     check('batchId')
-        .optional()
-        .isMongoId().withMessage('Batch Id must be valid'),
+        .optional({ nullable: true })
+        .isMongoId()
+        .withMessage('Batch Id must be a valid MongoDB ObjectId'),
 
     check('name')
         .optional()

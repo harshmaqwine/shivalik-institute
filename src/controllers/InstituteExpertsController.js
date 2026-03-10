@@ -4,7 +4,7 @@ const { validationResult } = require('express-validator');
 const CommonConfig = require('../config/common.js'); 
 const { commonStatus } = require('../config/data');
 const expertsModel = require("../models/instituteExperts.js");
-const path = require('path');
+
 
 /**
  * Creates a new expert profile.
@@ -40,25 +40,12 @@ const create = async (req, res) => {
             try { expertData.bankDetails = JSON.parse(expertData.bankDetails); } catch(e) { /* ignore parse errors */ }
         }
 
-        // handle file uploads (express-fileupload)
-        if (req.files) {
-            // ensure upload directory exists
-            const uploadDir = `${__dirname}/../uploads/experts`;
-            const fs = require('fs');
-            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-            if (req.files.panCard) {
-                const file = req.files.panCard;
-                const dest = `${uploadDir}/pan_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                expertData.panCard = `/uploads/experts/${path.basename(dest)}`;
-            }
-            if (req.files.profilePicture) {
-                const file = req.files.profilePicture;
-                const dest = `${uploadDir}/pic_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                expertData.profilePicture = `/uploads/experts/${path.basename(dest)}`;
-            }
+        // panCard and profilePicture URLs should be sent from the frontend
+        if (req.body.panCard) {
+            expertData.panCard = req.body.panCard;
+        }
+        if (req.body.profilePicture) {
+            expertData.profilePicture = req.body.profilePicture;
         }
 
         const newExpert = new expertsModel.Experts(expertData);
@@ -244,24 +231,12 @@ const update = async (req, res) => {
         if (updateData.bankDetails && typeof updateData.bankDetails === 'string') {
             try { updateData.bankDetails = JSON.parse(updateData.bankDetails); } catch(e) { }
         }
-        // handle file uploads on update as well
-        if (req.files) {
-            const uploadDir = `${__dirname}/../uploads/experts`;
-            const fs = require('fs');
-            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-            if (req.files.panCard) {
-                const file = req.files.panCard;
-                const dest = `${uploadDir}/pan_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                updateData.panCard = `/uploads/experts/${path.basename(dest)}`;
-            }
-            if (req.files.profilePicture) {
-                const file = req.files.profilePicture;
-                const dest = `${uploadDir}/pic_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                updateData.profilePicture = `/uploads/experts/${path.basename(dest)}`;
-            }
+        // frontend must supply any new panCard/profilePicture URLs
+        if (req.body.panCard) {
+            updateData.panCard = req.body.panCard;
+        }
+        if (req.body.profilePicture) {
+            updateData.profilePicture = req.body.profilePicture;
         }
 
         const updatedExpert = await expertsModel.Experts.findByIdAndUpdate(

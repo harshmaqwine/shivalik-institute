@@ -1085,6 +1085,12 @@ const listBatch = async (req, res) => {
 
             shift: item.shift,
             startDate: item.startDate,
+            endDate: item.endDate,
+            startTime: item.startTime,
+            endTime: item.endTime,
+            registrationEndDate: item.registrationEndDate,
+            orientationDate: item.orientationDate,
+
             batchSize: item.batchSize || 0,
             slug: item.slug
         }));
@@ -1521,6 +1527,8 @@ const listModule = async (req, res) => {
             _id: item._id,
             name: item.name,
             moduleNumber: item.moduleNumber,
+            description: item.description,
+            outcome: item.feedback,
             coordinator: item.coordinator,
             status: item.status,
 
@@ -1697,7 +1705,7 @@ const expertDropdownList = async (req, res) => {
                 lastName: 1
             }
         )
-            .sort({ firstName: 1 }) 
+            .sort({ firstName: 1 })
             .lean();
 
         // Full Name Format 

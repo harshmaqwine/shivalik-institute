@@ -6,7 +6,6 @@ const CommonFun = require('../libs/common.js');
 const InstituteCoursesModel = require('../models/instituteCourses.js');
 const InstituteBatchesModel = require("../models/instituteBatches.js");
 const InstituteStudentsModel = require("../models/instituteStudents.js");
-const path = require('path');
 
 /**
  * Create a new student and assign to a batch.
@@ -62,9 +61,14 @@ const createStudent = async (req, res) => {
         let profilePicture = bodyProfilePicture;
 
         // Verify batch exists
-        const batch = await InstituteBatchesModel.findOne({ _id: batchId, isDeleted: false });
-        if (!batch) {
-            return res.status(404).send(response.toJson(messages['en'].instituteStudent.batch_not_exist));
+        if (batchId) {
+            const batch = await InstituteBatchesModel.findOne({ _id: batchId, isDeleted: false });
+
+            if (!batch) {
+                return res.status(404).send(
+                    response.toJson(messages['en'].instituteStudent.batch_not_exist)
+                );
+            }
         }
 
         // if course id is supplied, make sure the course exists (optional depending on business rules)
@@ -92,48 +96,18 @@ const createStudent = async (req, res) => {
                 }
                 if (enrollmentNo && existingStudent.enrollmentNo === enrollmentNo) {
                     return res.status(400).send(response.toJson(messages['en'].instituteStudent.enrollment_no_exists));
-                } 
+                }
                 return res.status(400).send(response.toJson(messages['en'].instituteStudent.email_exists));
-            } 
+            }
             await InstituteStudentsModel.deleteOne({ _id: existingStudent._id });
         }
- 
+
         const normPrefix = typeof prefixName === 'string' ? prefixName.toUpperCase() : prefixName;
         const normGender = typeof gender === 'string' ? gender.toUpperCase() : gender;
 
-        // uploaded document images  
-        const studentDocs = {};
-        if (req.files) {
-            const uploadDir = `${__dirname}/../uploads/student`;
-            const fs = require('fs');
-            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-            if (req.files.aadharCard) {
-                const file = req.files.aadharCard;
-                const dest = `${uploadDir}/aadhar_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                studentDocs.aadharCard = `/uploads/student/${path.basename(dest)}`;
-            }
-            if (req.files.receipt) {
-                const file = req.files.receipt;
-                const dest = `${uploadDir}/receipt_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                studentDocs.receipt = `/uploads/student/${path.basename(dest)}`;
-            }
-            if (req.files.photo) {
-                const file = req.files.photo;
-                const dest = `${uploadDir}/photo_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                studentDocs.photo = `/uploads/student/${path.basename(dest)}`;
-            }
-            // profilePicture upload
-            if (req.files.profilePicture) {
-                const file = req.files.profilePicture;
-                const dest = `${uploadDir}/profile_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                studentDocs.profilePicture = `/uploads/student/${path.basename(dest)}`;
-                profilePicture = studentDocs.profilePicture;
-            }
+        const studentDocs = req.body.documentsSubmitted || {};
+        if (bodyProfilePicture) {
+            profilePicture = bodyProfilePicture;
         }
 
         // Assemble student document
@@ -168,7 +142,7 @@ const createStudent = async (req, res) => {
 
         return res.status(201).send(response.toJson(messages['en'].instituteStudent.create_success, newStudent));
 
-    } catch (error) { 
+    } catch (error) {
         if (error.code === 11000 && error.keyPattern && error.keyPattern.email) {
             return res.status(400).send(
                 response.toJson(messages['en'].instituteStudent.email_exists)
@@ -327,7 +301,7 @@ const detailStudent = async (req, res) => {
         //     );
         // }
 
-         const { studentId } = req.params;
+        const { studentId } = req.params;
 
         const student = await InstituteStudentsModel
             .findOne({
@@ -384,7 +358,7 @@ const detailStudent = async (req, res) => {
 
             batch: student.batchId ? {
                 _id: student.batchId._id,
-                name: student.batchId.batchName, 
+                name: student.batchId.batchName,
             } : null,
 
             createdAt: student.createdAt,
@@ -488,39 +462,11 @@ const updateStudent = async (req, res) => {
         if (phone) student.phone = phone;
         if (status) student.status = status;
 
-        // process uploaded document images if provided (express-fileupload)
-        if (req.files) {
-            const uploadDir = `${__dirname}/../uploads/student`;
-            const fs = require('fs');
-            if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-            if (req.files.aadharCard) {
-                const file = req.files.aadharCard;
-                const dest = `${uploadDir}/aadhar_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                student.documentsSubmitted = student.documentsSubmitted || {};
-                student.documentsSubmitted.aadharCard = `/uploads/student/${path.basename(dest)}`;
-            }
-            if (req.files.receipt) {
-                const file = req.files.receipt;
-                const dest = `${uploadDir}/receipt_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                student.documentsSubmitted = student.documentsSubmitted || {};
-                student.documentsSubmitted.receipt = `/uploads/student/${path.basename(dest)}`;
-            }
-            if (req.files.photo) {
-                const file = req.files.photo;
-                const dest = `${uploadDir}/photo_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                student.documentsSubmitted = student.documentsSubmitted || {};
-                student.documentsSubmitted.photo = `/uploads/student/${path.basename(dest)}`;
-            }
-            if (req.files.profilePicture) {
-                const file = req.files.profilePicture;
-                const dest = `${uploadDir}/profile_${Date.now()}_${file.name}`;
-                await file.mv(dest);
-                student.profilePicture = `/uploads/student/${path.basename(dest)}`;
-            }
+        if (req.body.documentsSubmitted) {
+            student.documentsSubmitted = req.body.documentsSubmitted;
+        }
+        if (req.body.profilePicture) {
+            student.profilePicture = req.body.profilePicture;
         }
 
         student.updatedAt = new Date();
@@ -530,15 +476,15 @@ const updateStudent = async (req, res) => {
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.update_success,
-            //     {
-            //         id: student._id,
-            //         name: student.name,
-            //         email: student.email,
-            //         phone: student.phone,
-            //         status: student.status,
-            //         updatedBy: student.updatedBy,
-            //         updatedAt: student.updatedAt
-            //     }
+                //     {
+                //         id: student._id,
+                //         name: student.name,
+                //         email: student.email,
+                //         phone: student.phone,
+                //         status: student.status,
+                //         updatedBy: student.updatedBy,
+                //         updatedAt: student.updatedAt
+                //     }
             )
         );
 

@@ -12,12 +12,12 @@ const InstituteStudentsSchema = new Schema({
     batchId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'institutebatches',
-        required: true
+        // required: true
     },
     prefixName: {
         type: String,
         enum: prefixName,
-        required: true
+        // required: true
     },
     firstName: {
         type: String,
