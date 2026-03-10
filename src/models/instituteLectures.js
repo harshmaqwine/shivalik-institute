@@ -2,7 +2,6 @@ const mongoose = require('mongoose')
 const Schema = mongoose.Schema
 const { DBConnect } = require('./index.js')
 const { commonStatus } = require('../config/data.js');
-const { details } = require('../validations/instituteCourseValidation.js');
 
 const instituteLectureSchema = new mongoose.Schema({
     courseId: {
@@ -20,9 +19,10 @@ const instituteLectureSchema = new mongoose.Schema({
         ref: 'institutebatches',
         required: false
     },
-    moduleId: {
+    expertId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'institutemodules',
+        // reference should match the model name used in instituteExperts.js
+        ref: 'instituteexperts',
         required: false
     },
     classroomNumber: {
@@ -33,37 +33,26 @@ const instituteLectureSchema = new mongoose.Schema({
         type: Date,
         required: true
     },
-    // Sessions details.
-    details: [
-        {
-            expertId: {
-                type: mongoose.Schema.Types.ObjectId,
-                ref: 'instituteexperts'
-            },
-            topic: {
-                type: String,
-                required: true
-            },
-            lectureType: {
-                type: String,
-                enum: ["Guest", "Module", "Site Visit", "Master Class"],
-                required: true
-            },
-            sessionStartTime: {
-                type: String,
-                required: true
-            },
-            sessionEndTime: {
-                type: String,
-                required: true
-            },
-        }
-    ],
-
-    material: {
-        type: String
+    lectureType: {
+        type: String, 
+        required: true
     },
-
+    projectReviewLecture: {
+        type: Boolean,
+        default: false
+    },
+    sessionStartTime: {
+        type: String,
+        required: true
+    },
+    sessionEndTime: {
+        type: String,
+        required: true
+    },
+    material: {
+        type: String,
+        required: false
+    },
     createFeedbackForLearner: {
         type: Boolean,
         default: false
@@ -71,28 +60,6 @@ const instituteLectureSchema = new mongoose.Schema({
     feedbackForCoordinator: {
         type: String,
         required: false
-    },
-
-    // Checkboxes 
-    projectReviewLecture: {
-        type: Boolean,
-        default: false
-    },
-    juryLecture: {
-        type: Boolean,
-        default: false
-    },
-    moduleFinished: {
-        type: Boolean,
-        default: false
-    },
-    submissionRequired: {
-        type: Boolean,
-        default: false
-    },
-    notifyStudents: {
-        type: Boolean,
-        default: false
     },
     status: {
         type: String,
@@ -107,7 +74,7 @@ const instituteLectureSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
-    updatedBy: {
+    updatedBy: {    
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     },
@@ -124,12 +91,11 @@ const instituteLectureSchema = new mongoose.Schema({
     },
 });
 
-// indexes used for filtering/search
 instituteLectureSchema.index({ courseId: 1 });
 instituteLectureSchema.index({ isDeleted: 1, lectureDate: -1 });
 instituteLectureSchema.index({ batchId: 1, isDeleted: 1 });
 instituteLectureSchema.index({ courseId: 1, subCourseId: 1, isDeleted: 1 });
-instituteLectureSchema.index({ "details.expertId": 1 });
+instituteLectureSchema.index({ expertId: 1, isDeleted: 1 });
 instituteLectureSchema.index({ classroomNumber: 1 });
 
 instituteLectureSchema.methods.toJSON = function () {

@@ -1767,29 +1767,24 @@ const createLecture = async (req, res) => {
             courseId,
             subCourseId,
             batchId,
-            moduleId,
+            expertId,
             classroomNumber,
             lectureDate,
-            details,
+            lectureType,
+            projectReviewLecture,
+            sessionStartTime,
+            sessionEndTime,
             material,
             createFeedbackForLearner,
-            feedbackForCoordinator,
-            projectReviewLecture,
-            juryLecture,
-            moduleFinished,
-            submissionRequired,
-            notifyStudents
+            feedbackForCoordinator
         } = req.body;
 
-        // Course Validation
         const course = await InstituteCoursesModel.findById(courseId);
         if (!course) {
             return res.status(404).send(
                 response.toJson(messages['en'].instituteCourse.course_not_exist)
             );
         }
-
-        // SubCourse Validation
         if (subCourseId) {
             const subCourse = await InstituteSubCoursesModel.findOne({
                 _id: subCourseId,
@@ -1802,8 +1797,6 @@ const createLecture = async (req, res) => {
                 );
             }
         }
-
-        // Batch Validation
         if (batchId) {
             const batch = await InstituteBatchesModel.findById(batchId);
             if (!batch) {
@@ -1812,48 +1805,27 @@ const createLecture = async (req, res) => {
                 );
             }
         }
-
-        // Module Validation
-        if (moduleId) {
-            const module = await InstituteModulesModel.findById(moduleId);
-            if (!module) {
-                return res.status(404).send(
-                    response.toJson(messages['en'].instituteCourse.module_not_exist)
-                );
-            }
+        const expert = await expertsModel.Experts.findById(expertId);
+        if (!expert || expert.isDeleted) {
+            return res.status(404).send(
+                response.toJson(messages['en'].experts.not_exist)
+            );
         }
 
-        // Experts Validation (Loop for sessions)
-        if (details && details.length > 0) {
-            for (let session of details) {
-                if (session.expertId) {
-                    const expert = await expertsModel.Experts.findById(session.expertId);
-                    if (!expert || expert.isDeleted) {
-                        return res.status(404).send(
-                            response.toJson(messages['en'].experts.not_exist)
-                        );
-                    }
-                }
-            }
-        }
-
-        // Lecture Data 
         const lectureData = {
             courseId,
             subCourseId: subCourseId || null,
             batchId: batchId || null,
-            moduleId: moduleId || null,
+            expertId,
             classroomNumber,
             lectureDate,
-            details: details || [],
+            lectureType,
+            sessionStartTime,
+            sessionEndTime,
             material: material || null,
             createFeedbackForLearner: createFeedbackForLearner || false,
             feedbackForCoordinator: feedbackForCoordinator || null,
             projectReviewLecture: projectReviewLecture || false,
-            juryLecture: juryLecture || false,
-            moduleFinished: moduleFinished || false,
-            submissionRequired: submissionRequired || false,
-            notifyStudents: notifyStudents || false,
             // createdBy: req.user._id
         };
 
@@ -1871,8 +1843,7 @@ const createLecture = async (req, res) => {
     } catch (err) {
         console.log(err);
         const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.not_exists;
-
+        const errMess = err.message || messages['en'].common.server_error;
         return res.status(statusCode).send(
             response.toJson(errMess)
         );
@@ -1902,23 +1873,20 @@ const updateLecture = async (req, res) => {
         // }
 
         const lectureId = req.params.lectureId;
-
         const {
             courseId,
             subCourseId,
             batchId,
-            moduleId,
+            expertId,
             classroomNumber,
             lectureDate,
-            details,
+            lectureType,
+            projectReviewLecture,
+            sessionStartTime,
+            sessionEndTime,
             material,
             createFeedbackForLearner,
-            feedbackForCoordinator,
-            projectReviewLecture,
-            juryLecture,
-            moduleFinished,
-            submissionRequired,
-            notifyStudents
+            feedbackForCoordinator
         } = req.body;
 
         const lecture = await InstituteLectures.findById(lectureId);
@@ -1928,7 +1896,6 @@ const updateLecture = async (req, res) => {
             );
         }
 
-        // Course Validation
         if (courseId) {
             const course = await InstituteCoursesModel.findById(courseId);
             if (!course) {
@@ -1938,13 +1905,11 @@ const updateLecture = async (req, res) => {
             }
         }
 
-        // SubCourse Validation
         if (subCourseId) {
             const subCourse = await InstituteSubCoursesModel.findOne({
                 _id: subCourseId,
-                instituteCourseId: courseId || lecture.courseId
+                instituteCourseId: courseId
             });
-
             if (!subCourse) {
                 return res.status(404).send(
                     response.toJson(messages['en'].instituteCourse.subcourse_invalid)
@@ -1952,7 +1917,6 @@ const updateLecture = async (req, res) => {
             }
         }
 
-        // Batch Validation
         if (batchId) {
             const batch = await InstituteBatchesModel.findById(batchId);
             if (!batch) {
@@ -1962,86 +1926,44 @@ const updateLecture = async (req, res) => {
             }
         }
 
-        // Module Validation
-        if (moduleId) {
-            const module = await InstituteModulesModel.findById(moduleId);
-            if (!module) {
+        if (expertId) {
+            const expert = await expertsModel.Experts.findById(expertId);
+            if (!expert || expert.isDeleted) {
                 return res.status(404).send(
-                    response.toJson(messages['en'].instituteCourse.module_not_exist)
+                    response.toJson(messages['en'].experts.not_exist)
                 );
             }
         }
 
-        // Experts Validation (for updated sessions)
-        if (details && details.length > 0) {
-            for (let session of details) {
-                if (session.expertId) {
-                    const expert = await expertsModel.Experts.findById(session.expertId);
-                    if (!expert || expert.isDeleted) {
-                        return res.status(404).send(
-                            response.toJson(messages['en'].experts.not_exist)
-                        );
-                    }
-                }
-            }
-        }
-
-        // Prepare Updated Data (Model Wise)
         const updatedData = {
-            courseId: courseId || lecture.courseId,
-            subCourseId: subCourseId !== undefined ? subCourseId : lecture.subCourseId,
-            batchId: batchId !== undefined ? batchId : lecture.batchId,
-            moduleId: moduleId !== undefined ? moduleId : lecture.moduleId,
+            courseId,
+            subCourseId: subCourseId || lecture.subCourseId,
+            batchId: batchId || lecture.batchId,
+            expertId: expertId || lecture.expertId,
             classroomNumber: classroomNumber || lecture.classroomNumber,
             lectureDate: lectureDate || lecture.lectureDate,
-            details: details || lecture.details,
-            material: material !== undefined ? material : lecture.material,
-            createFeedbackForLearner:
-                createFeedbackForLearner !== undefined
-                    ? createFeedbackForLearner
-                    : lecture.createFeedbackForLearner,
-            feedbackForCoordinator:
-                feedbackForCoordinator !== undefined
-                    ? feedbackForCoordinator
-                    : lecture.feedbackForCoordinator,
-            projectReviewLecture:
-                projectReviewLecture !== undefined
-                    ? projectReviewLecture
-                    : lecture.projectReviewLecture,
-            juryLecture:
-                juryLecture !== undefined
-                    ? juryLecture
-                    : lecture.juryLecture,
-            moduleFinished:
-                moduleFinished !== undefined
-                    ? moduleFinished
-                    : lecture.moduleFinished,
-            submissionRequired:
-                submissionRequired !== undefined
-                    ? submissionRequired
-                    : lecture.submissionRequired,
-            notifyStudents:
-                notifyStudents !== undefined
-                    ? notifyStudents
-                    : lecture.notifyStudents,
-            updatedAt: new Date()
+            lectureType: lectureType || lecture.lectureType,
+            sessionStartTime: sessionStartTime || lecture.sessionStartTime,
+            sessionEndTime: sessionEndTime || lecture.sessionEndTime,
+            material: material || lecture.material,
+            createFeedbackForLearner: createFeedbackForLearner !== undefined ? createFeedbackForLearner : lecture.createFeedbackForLearner,
+            feedbackForCoordinator: feedbackForCoordinator || lecture.feedbackForCoordinator,
+            projectReviewLecture: projectReviewLecture !== undefined ? projectReviewLecture : lecture.projectReviewLecture,
+            updatedAt: new Date(),
+            // updatedBy: req.user._id
         };
 
-        await InstituteLectures.updateOne(
-            { _id: lectureId },
-            { $set: updatedData }
-        );
+        await InstituteLectures.updateOne({ _id: lectureId }, { $set: updatedData });
 
         return res.status(200).send(
-            response.toJson(messages['en'].common.update_success, {
-                lecture: updatedData
-            })
+            response.toJson(messages['en'].common.update_success, { lecture: updatedData })
         );
-
     } catch (err) {
         console.log(err);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.not_exists)
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || messages['en'].common.server_error;
+        return res.status(statusCode).send(
+            response.toJson(errMess)
         );
     }
 };
@@ -2067,157 +1989,53 @@ const listLecture = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-
-        // PAGINATION 
-        const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
-
-        // Sorting
-        const sortBy = req.query.sortBy || "lectureDate";
-        const sortOrder = req.query.sort === "asc" ? 1 : -1;
-
-        const sortObject = {};
-        sortObject[sortBy] = sortOrder;
-
-        // Filter
         const filters = { isDeleted: false };
 
-        if (req.query.courseId)
-            filters.courseId = req.query.courseId;
+        if (req.query.courseId) filters.courseId = req.query.courseId;
+        if (req.query.subCourseId) filters.subCourseId = req.query.subCourseId;
+        if (req.query.batchId) filters.batchId = req.query.batchId;
+        if (req.query.expertId) filters.expertId = req.query.expertId;
 
-        if (req.query.subCourseId)
-            filters.subCourseId = req.query.subCourseId;
-
-        if (req.query.batchId)
-            filters.batchId = req.query.batchId;
-
-        if (req.query.moduleId)
-            filters.moduleId = req.query.moduleId;
-
-        if (req.query.expertId)
-            filters["details.expertId"] = req.query.expertId;
-
-        if (req.query.lectureDate)
-            filters.lectureDate = new Date(req.query.lectureDate);
-
-        if (req.query.createFeedbackForLearner)
-            filters.createFeedbackForLearner = req.query.createFeedbackForLearner === "true";
-
-        // Search 
         if (req.query.search) {
-            filters.$or = [
-                { classroomNumber: { $regex: req.query.search, $options: "i" } },
-                { "details.topic": { $regex: req.query.search, $options: "i" } }
-            ];
+            filters.classroomNumber = {
+                $regex: req.query.search,
+                $options: "i"
+            };
         }
 
-        // QUERY
-        const [lectures, total] = await Promise.all([
+        const lectures = await InstituteLectures.find(filters)
+            .populate("batchId", "batchName")
+            .populate("expertId", "prefixName firstName lastName fullName")
+            .sort({ lectureDate: -1 })
+            .lean();
 
-            InstituteLectures.find(filters)
-                .populate("courseId", "name")
-                .populate("subCourseId", "name")
-                .populate("batchId", "batchName")
-                .populate("moduleId", "name")
-                .populate("details.expertId", "prefixName firstName lastName")
-                .sort(sortObject)
-                .skip(skip)
-                .limit(limit)
-                .lean(),
-
-            InstituteLectures.countDocuments(filters)
-        ]);
-
-        // Response
-        const formattedLectures = lectures.map((lecture) => {
-
-            const firstSession = lecture.details?.[0];
-
-            const responseObj = {
-                _id: lecture._id,
-                lectureDate: lecture.lectureDate,
-                classroomNumber: lecture.classroomNumber,
-
-                course: lecture.courseId ? {
-                    _id: lecture.courseId._id,
-                    name: lecture.courseId.name
-                } : undefined,
-
-                subCourse: lecture.subCourseId ? {
-                    _id: lecture.subCourseId._id,
-                    name: lecture.subCourseId.name
-                } : undefined,
-
-                batch: lecture.batchId ? {
-                    _id: lecture.batchId._id,
-                    name: lecture.batchId.batchName
-                } : undefined,
-
-                projectReviewLecture: lecture.projectReviewLecture,
-                createFeedbackForLearner: lecture.createFeedbackForLearner
-            };
-
-            if (lecture.moduleId) {
-                responseObj.module = {
-                    _id: lecture.moduleId._id,
-                    name: lecture.moduleId.name
-                };
-            }
-
-            if (firstSession) {
-
-                if (firstSession?.expertId) {
-
-                    const expert = firstSession.expertId;
-
-                    const fullName = [
-                        expert.prefixName,
-                        expert.firstName,
-                        expert.lastName
-                    ].filter(Boolean).join(" ");
-
-                    responseObj.expert = {
-                        _id: expert._id,
-                        name: fullName
-                    };
-                }
-
-                if (firstSession.topic)
-                    responseObj.topic = firstSession.topic;
-
-                if (firstSession.lectureType)
-                    responseObj.lectureType = firstSession.lectureType;
-
-                if (firstSession.sessionStartTime)
-                    responseObj.sessionStartTime = firstSession.sessionStartTime;
-
-                if (firstSession.sessionEndTime)
-                    responseObj.sessionEndTime = firstSession.sessionEndTime;
-            }
-
-            return responseObj;
-        });
+        const formattedLectures = lectures.map((lecture) => ({
+            _id: lecture._id,
+            date: lecture.lectureDate,
+            batch: lecture.batchId ? {
+                _id: lecture.batchId._id,
+                name: lecture.batchId.batchName
+            } : null,
+            expert: lecture.expertId ? {
+                _id: lecture.expertId._id,
+                name: `${lecture.expertId.prefixName}. ${lecture.expertId.firstName} ${lecture.expertId.lastName}`
+            } : null,
+            type: lecture.lectureType,
+            startTime: lecture.sessionStartTime,
+            endTime: lecture.sessionEndTime
+        }));
 
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.list_success,
-                {
-                    lectures: formattedLectures,
-                    pagination: {
-                        totalRecords: total,
-                        currentPage: page,
-                        totalPages: Math.ceil(total / limit),
-                        pageSize: limit
-                    }
-                }
+                { lectures: formattedLectures }
             )
         );
 
     } catch (err) {
         console.log(err);
         return res.status(500).send(
-            response.toJson(messages['en'].common.server_error)
+            response.toJson(messages['en'].common.not_exists)
         );
     }
 };
@@ -2244,7 +2062,6 @@ const lectureDetails = async (req, res) => {
         //     );
         // }
         const lectureId = req.params.lectureId;
-
         const lecture = await InstituteLectures.findOne({
             _id: lectureId,
             isDeleted: false
@@ -2252,61 +2069,60 @@ const lectureDetails = async (req, res) => {
             .populate("courseId", "name")
             .populate("subCourseId", "name")
             .populate("batchId", "batchName")
-            .populate("moduleId", "name")
-            .populate("details.expertId", "name")
+            .populate("expertId", "prefixName firstName lastName")
             .lean();
-
         if (!lecture) {
             return res.status(404).send(
-                response.toJson(messages['en'].common.not_exists)
+                response.toJson(messages['en'].instituteCourse.lecture_not_exist)
             );
         }
-
         const formattedResponse = {
             _id: lecture._id,
-            courseName: lecture.courseId?.name || null,
-            subCourseName: lecture.subCourseId?.name || null,
-            batchName: lecture.batchId?.batchName || null,
-            moduleName: lecture.moduleId?.name || null,
+
+            course: lecture.courseId ? {
+                _id: lecture.courseId._id,
+                name: lecture.courseId.name
+            } : null,
+
+            subCourse: lecture.subCourseId ? {
+                _id: lecture.subCourseId._id,
+                name: lecture.subCourseId.name
+            } : null,
+
+            batch: lecture.batchId ? {
+                _id: lecture.batchId._id,
+                name: lecture.batchId.batchName
+            } : null,
+
+            expert: lecture.expertId ? {
+                _id: lecture.expertId._id,
+                name: `${lecture.expertId.prefixName}. ${lecture.expertId.firstName} ${lecture.expertId.lastName}`
+            } : null,
+
             classroomNumber: lecture.classroomNumber,
             lectureDate: lecture.lectureDate,
-
-            // session details
-            sessions: lecture.details?.map(session => ({
-                expertName: session?.expertId?.name || null,
-                topic: session.topic,
-                lectureType: session.lectureType,
-                sessionStartTime: session.sessionStartTime,
-                sessionEndTime: session.sessionEndTime
-            })) || [],
-
+            lectureType: lecture.lectureType,
             projectReviewLecture: lecture.projectReviewLecture,
-            juryLecture: lecture.juryLecture,
-            moduleFinished: lecture.moduleFinished,
-            submissionRequired: lecture.submissionRequired,
-            notifyStudents: lecture.notifyStudents,
-
+            sessionStartTime: lecture.sessionStartTime,
+            sessionEndTime: lecture.sessionEndTime,
             material: lecture.material,
             createFeedbackForLearner: lecture.createFeedbackForLearner,
             feedbackForCoordinator: lecture.feedbackForCoordinator,
-
-            status: lecture.status,
-            isDeleted: lecture.isDeleted,
             createdAt: lecture.createdAt,
             updatedAt: lecture.updatedAt
         };
-
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.details_success,
                 formattedResponse
             )
         );
-
     } catch (err) {
         console.log(err);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.not_exists)
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || messages['en'].common.server_error;
+        return res.status(statusCode).send(
+            response.toJson(errMess)
         );
     }
 };

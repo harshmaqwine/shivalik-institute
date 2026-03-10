@@ -401,6 +401,7 @@ exports.expertDropdownList = [
 ];
 
 exports.createLecture = [
+
   check('courseId')
     .notEmpty()
     .withMessage('Course id is required')
@@ -417,10 +418,11 @@ exports.createLecture = [
     .isMongoId()
     .withMessage('Invalid batch id'),
 
-  check('moduleId')
-    .optional()
+  check('expertId')
+    .notEmpty()
+    .withMessage('Expert id is required')
     .isMongoId()
-    .withMessage('Invalid module id'),
+    .withMessage('Invalid expert id'),
 
   check('classroomNumber')
     .notEmpty()
@@ -431,63 +433,23 @@ exports.createLecture = [
     .withMessage('Lecture date is required')
     .isISO8601()
     .withMessage('Invalid lecture date format'),
- 
-  check('details')
-    .isArray({ min: 1 })
-    .withMessage('At least one session is required'),
 
-  check('details.*.expertId')
-    .optional()
-    .isMongoId()
-    .withMessage('Invalid expert id'),
-
-  check('details.*.topic')
+  check('lectureType')
     .notEmpty()
-    .withMessage('Session topic is required'),
+    .withMessage('Lecture type is required'),
 
-  check('details.*.lectureType')
-    .notEmpty()
-    .withMessage('Lecture type is required')
-    .isIn(["Guest", "Module", "Site Visit", "Master Class"])
-    .withMessage('Invalid lecture type'),
-
-  check('details.*.sessionStartTime')
+  check('sessionStartTime')
     .notEmpty()
     .withMessage('Session start time is required'),
 
-  check('details.*.sessionEndTime')
+  check('sessionEndTime')
     .notEmpty()
     .withMessage('Session end time is required'),
- 
+
   check('createFeedbackForLearner')
     .optional()
     .isBoolean()
     .withMessage('createFeedbackForLearner must be boolean'),
-
-  check('projectReviewLecture')
-    .optional()
-    .isBoolean()
-    .withMessage('projectReviewLecture must be boolean'),
-
-  check('juryLecture')
-    .optional()
-    .isBoolean()
-    .withMessage('juryLecture must be boolean'),
-
-  check('moduleFinished')
-    .optional()
-    .isBoolean()
-    .withMessage('moduleFinished must be boolean'),
-
-  check('submissionRequired')
-    .optional()
-    .isBoolean()
-    .withMessage('submissionRequired must be boolean'),
-
-  check('notifyStudents')
-    .optional()
-    .isBoolean()
-    .withMessage('notifyStudents must be boolean'),
 
   check('feedbackForCoordinator')
     .optional()
@@ -541,53 +503,19 @@ exports.deleteLecture = [
 ];
 
 exports.listLecture = [
-
-    query('page')
-        .optional()
-        .isInt({ min: 1 })
-        .withMessage('Page must be a number'),
-
-    query('limit')
-        .optional()
-        .isInt({ min: 1 })
-        .withMessage('Limit must be a number'),
-
-    query('sort')
-        .optional()
-        .isIn(['asc', 'desc'])
-        .withMessage('Sort must be asc or desc'),
-
-    query('courseId')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid course id'),
-
-    query('subCourseId')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid sub course id'),
-
-    query('batchId')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid batch id'),
-
-    query('moduleId')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid module id'),
-
-    query('expertId')
-        .optional()
-        .isMongoId()
-        .withMessage('Invalid expert id'),
-
+  check('page').not().isEmpty().withMessage('Page is required').toInt().withMessage('Page is allowed Only numbers'),
+  check('sortBy').optional(),
+  check('sort').optional(),
+  check('instituteCourseId').optional(),
+  check('instituteSubCourseId').optional(),
+  check('expertId').optional(),
+  check('classroomNumber').optional(),
+  check('lectureDate').optional().isISO8601().withMessage('Invalid lecture date format'),
+  check('lectureType').optional(),
+  check('createFeedbackForLearner').optional().isBoolean().withMessage('createFeedbackForLearner must be a boolean'),
+  check('feedbackForCoordinator').optional(),
 ];
 
 exports.lectureDetails = [
-  param('lectureId')
-    .notEmpty()
-    .withMessage('Lecture id is required')
-    .isMongoId()
-    .withMessage('Invalid lecture id'),
+  check('lectureId').not().isEmpty().withMessage('Lecture id is required'),
 ];
