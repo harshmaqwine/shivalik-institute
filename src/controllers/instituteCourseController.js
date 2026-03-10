@@ -1969,6 +1969,7 @@ const updateLecture = async (req, res) => {
 };
 
 // get lecture list.
+// get lecture list.
 const listLecture = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -1989,8 +1990,9 @@ const listLecture = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        const filters = { isDeleted: false };
 
+        // build base filters
+        const filters = { isDeleted: false };
         if (req.query.courseId) filters.courseId = req.query.courseId;
         if (req.query.subCourseId) filters.subCourseId = req.query.subCourseId;
         if (req.query.batchId) filters.batchId = req.query.batchId;
@@ -2003,11 +2005,27 @@ const listLecture = async (req, res) => {
             };
         }
 
-        const lectures = await InstituteLectures.find(filters)
-            .populate("batchId", "batchName")
-            .populate("expertId", "prefixName firstName lastName fullName")
-            .sort({ lectureDate: -1 })
-            .lean();
+        // pagination parameters
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
+        // sorting
+        const sortBy = req.query.sortBy || "lectureDate";
+        const sortOrder = req.query.sort === "asc" ? 1 : -1;
+        const sorting = { [sortBy]: sortOrder };
+
+        // query with pagination
+        const [lectures, total] = await Promise.all([
+            InstituteLectures.find(filters)
+                .populate("batchId", "batchName")
+                .populate("expertId", "prefixName firstName lastName fullName")
+                .sort(sorting)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            InstituteLectures.countDocuments(filters)
+        ]);
 
         const formattedLectures = lectures.map((lecture) => ({
             _id: lecture._id,
@@ -2028,7 +2046,15 @@ const listLecture = async (req, res) => {
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.list_success,
-                { lectures: formattedLectures }
+                {
+                    lectures: formattedLectures,
+                    pagination: {
+                        totalRecords: total,
+                        currentPage: page,
+                        totalPages: Math.ceil(total / limit),
+                        pageSize: limit
+                    }
+                }
             )
         );
 

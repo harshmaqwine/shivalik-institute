@@ -503,17 +503,60 @@ exports.deleteLecture = [
 ];
 
 exports.listLecture = [
-  check('page').not().isEmpty().withMessage('Page is required').toInt().withMessage('Page is allowed Only numbers'),
-  check('sortBy').optional(),
-  check('sort').optional(),
-  check('instituteCourseId').optional(),
-  check('instituteSubCourseId').optional(),
-  check('expertId').optional(),
-  check('classroomNumber').optional(),
-  check('lectureDate').optional().isISO8601().withMessage('Invalid lecture date format'),
-  check('lectureType').optional(),
-  check('createFeedbackForLearner').optional().isBoolean().withMessage('createFeedbackForLearner must be a boolean'),
-  check('feedbackForCoordinator').optional(),
+  // pagination
+  query('page')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Page must be a positive number')
+    .toInt(),
+  query('limit')
+    .optional()
+    .isInt({ min: 1 })
+    .withMessage('Limit must be a positive number')
+    .toInt(),
+
+  // sorting
+  query('sortBy').optional(),
+  query('sort')
+    .optional()
+    .isIn(['asc', 'desc'])
+    .withMessage('Sort must be asc or desc'),
+
+  // filters
+  query('instituteCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteCourseId'),
+  query('instituteSubCourseId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid instituteSubCourseId'),
+  query('batchId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid batchId'),
+  query('expertId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid expertId'),
+  query('classroomNumber').optional().isString(),
+  query('lectureDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Invalid lecture date format'),
+  query('lectureType').optional(),
+
+  // search term
+  query('search')
+    .optional()
+    .isString()
+    .trim(),
+
+  query('createFeedbackForLearner')
+    .optional()
+    .isBoolean()
+    .withMessage('createFeedbackForLearner must be a boolean'),
+  query('feedbackForCoordinator').optional(),
 ];
 
 exports.lectureDetails = [
