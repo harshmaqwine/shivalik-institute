@@ -3,8 +3,9 @@ const { check, query, param } = require("express-validator");
 
 exports.create = [
   check('name').not().isEmpty().withMessage('Name is requied'),
-  check('price').optional(),
-  check('discount').optional(),
+  // price/discount can be empty string or whitespace; trim first
+  check('price').optional({ checkFalsy: true }).trim(),
+  check('discount').optional({ checkFalsy: true }).trim(),
 ];
 
 exports.updateCourse = [
@@ -13,11 +14,13 @@ exports.updateCourse = [
     .isString()
     .withMessage('Course name must be a string'),
   check('price')
-    .optional()
+    .optional({ checkFalsy: true })
+    .trim()
     .isNumeric()
     .withMessage('Price must be a number'),
   check('discount')
-    .optional()
+    .optional({ checkFalsy: true })
+    .trim()
     .isNumeric()
     .withMessage('Discount must be a number'),
 ];
@@ -29,8 +32,8 @@ exports.deleteCourse = [
 exports.subCourseCreate = [
   check('instituteCourseId').not().isEmpty().withMessage('Institute Course id is requied'),
   check('name').not().isEmpty().withMessage('Name is requied'),
-  check('price').optional(),
-  check('discount').optional(),
+  check('price').optional({ checkFalsy: true }).trim(),
+  check('discount').optional({ checkFalsy: true }).trim(),
 ];
 
 exports.subCourseUpdate = [
@@ -41,11 +44,13 @@ exports.subCourseUpdate = [
     .isString()
     .withMessage('Sub Course name must be a string'),
   check('price')
-    .optional()
+    .optional({ checkFalsy: true })
+    .trim()
     .isNumeric()
     .withMessage('Price must be a number'),
   check('discount')
-    .optional()
+    .optional({ checkFalsy: true })
+    .trim()
     .isNumeric()
     .withMessage('Discount must be a number'),
 ];
