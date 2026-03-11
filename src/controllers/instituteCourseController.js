@@ -1805,6 +1805,15 @@ const createLecture = async (req, res) => {
                     response.toJson(messages['en'].instituteCourse.batch_not_exist)
                 );
             }
+            // ensure lectureDate is strictly after batch end date
+            if (lectureDate && batch.endDate) {
+                const lec = new Date(lectureDate);
+                if (lec <= new Date(batch.endDate)) {
+                    return res.status(400).send(
+                        response.toJson(messages['en'].instituteCourse.lecture_date_after_batch_end)
+                    );
+                }
+            }
         }
         const expert = await expertsModel.Experts.findById(expertId);
         if (!expert || expert.isDeleted) {
@@ -1925,6 +1934,15 @@ const updateLecture = async (req, res) => {
                     response.toJson(messages['en'].instituteCourse.batch_not_exist)
                 );
             }
+            // validate provided lectureDate is after batch end date
+            if (lectureDate && batch.endDate) {
+                const lec = new Date(lectureDate);
+                if (lec <= new Date(batch.endDate)) {
+                    return res.status(400).send(
+                        response.toJson(messages['en'].instituteCourse.lecture_date_after_batch_end)
+                    );
+                }
+            }
         }
 
         if (expertId) {
@@ -1991,10 +2009,10 @@ const listLecture = async (req, res) => {
         //     );
         // }
 
-        // build base filters
+        // filters
         const filters = { isDeleted: false };
-        if (req.query.courseId) filters.courseId = req.query.courseId;
-        if (req.query.subCourseId) filters.subCourseId = req.query.subCourseId;
+        if (req.query.instituteCourseId) filters.courseId = req.query.instituteCourseId;
+        if (req.query.instituteSubCourseId) filters.subCourseId = req.query.instituteSubCourseId;
         if (req.query.batchId) filters.batchId = req.query.batchId;
         if (req.query.expertId) filters.expertId = req.query.expertId;
 

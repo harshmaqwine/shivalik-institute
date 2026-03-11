@@ -13,7 +13,7 @@ const materialsList = async (req, res) => {
     }
 
     try {
-        // Role validation
+        // Role validation (commented out like other controllers)
         // const allowedRoles = ["SuperAdmin", "InstituteManager", "InstituteExecutive"];
         // const userHasAccess = req.user?.userRoles?.some(role =>
         //     allowedRoles.includes(role)
@@ -25,16 +25,59 @@ const materialsList = async (req, res) => {
         //     );
         // }
 
-        const modules = await InstituteModulesModel
-            .find({ isDeleted: false })
-            .select("_id moduleNumber name materialLink")
-            .sort({ moduleNumber: 1 })
-            .lean();
+        // build filters for optional fields
+        const moduleFilters = { isDeleted: false };
+        if (req.query.instituteCourseId) moduleFilters.instituteCourseId = req.query.instituteCourseId;
+        if (req.query.instituteSubCourseId) moduleFilters.instituteSubCourseId = req.query.instituteSubCourseId;
+        if (req.query.status) moduleFilters.status = req.query.status;
+        if (req.query.search) {
+            moduleFilters.$or = [
+                { name: { $regex: req.query.search, $options: 'i' } },
+                { moduleNumber: { $regex: req.query.search, $options: 'i' } }
+            ];
+        }
+
+        // pagination/sorting params
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+        const sortBy = req.query.sortBy || 'moduleNumber';
+        const sortOrder = req.query.sort === 'asc' ? 1 : -1;
+        const sorting = { [sortBy]: sortOrder };
+
+        const [modules, total] = await Promise.all([
+            InstituteModulesModel
+                .find(moduleFilters)
+                .populate('instituteCourseId', 'name')
+                .select('_id moduleNumber name materialLink status instituteCourseId')
+                .sort(sorting)
+                .skip(skip)
+                .limit(limit)
+                .lean(),
+            InstituteModulesModel.countDocuments(moduleFilters)
+        ]);
+
+        const formatted = modules.map(m => ({
+            _id: m._id,
+            moduleNumber: m.moduleNumber,
+            name: m.name,
+            materialLink: m.materialLink,
+            status: m.status,
+            course: m.instituteCourseId ? { _id: m.instituteCourseId._id, name: m.instituteCourseId.name } : null
+        }));
 
         return res.status(200).send(
             response.toJson(
                 messages['en'].common.list_success,
-                { modules }
+                {
+                    modules: formatted,
+                    pagination: {
+                        totalRecords: total,
+                        currentPage: page,
+                        totalPages: Math.ceil(total / limit),
+                        pageSize: limit
+                    }
+                }
             )
         );
 

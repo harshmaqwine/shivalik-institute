@@ -33,6 +33,7 @@ const message = {
       start_end_time_invalid: 'Start time must be before end time',
       course_exists: 'Course already exists,please try with other.',
       batch_has_lectures: 'Batch has lectures, please delete lectures before deleting batch.',
+      lecture_date_after_batch_end: 'Lecture date must be after batch end date.',
     },
     instituteStudent: {
       batch_not_exist: 'Batch not exists,please try with other.',

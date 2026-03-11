@@ -1,5 +1,6 @@
 const e = require("express");
 const { check, query, param } = require("express-validator");
+const InstituteBatchesModel = require("../models/instituteBatches.js");
 
 exports.create = [
   check('name').not().isEmpty().withMessage('Name is requied'),
@@ -439,7 +440,20 @@ exports.createLecture = [
     .notEmpty()
     .withMessage('Lecture date is required')
     .isISO8601()
-    .withMessage('Invalid lecture date format'),
+    .withMessage('Invalid lecture date format')
+    .custom(async (value, { req }) => {
+      if (req.body.batchId) {
+        const batch = await InstituteBatchesModel.findById(req.body.batchId);
+        if (!batch) {
+          throw new Error('Batch not exists');
+        }
+        const lec = new Date(value);
+        if (batch.endDate && lec <= new Date(batch.endDate)) {
+          throw new Error('Lecture date must be after batch end date');
+        }
+      }
+      return true;
+    }),
 
   check('lectureType')
     .notEmpty()
@@ -491,7 +505,20 @@ exports.updateLecture = [
   check('lectureDate')
     .optional()
     .isISO8601()
-    .withMessage('Invalid lecture date format'),
+    .withMessage('Invalid lecture date format')
+    .custom(async (value, { req }) => {
+      if (req.body.batchId && value) {
+        const batch = await InstituteBatchesModel.findById(req.body.batchId);
+        if (!batch) {
+          throw new Error('Batch not exists');
+        }
+        const lec = new Date(value);
+        if (batch.endDate && lec <= new Date(batch.endDate)) {
+          throw new Error('Lecture date must be after batch end date');
+        }
+      }
+      return true;
+    }),
 
   check('sessionStartTime')
     .optional(),
