@@ -137,8 +137,8 @@ const InstituteStudentsSchema = new Schema({
 });
  
 InstituteStudentsSchema.index(
-    { email: 1 },
-    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_email' }
+    { email: 1, batchId: 1 },
+    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_email_batch' }
 );
 
 // Unique Enrollment No
@@ -152,7 +152,12 @@ InstituteStudentsSchema.index({ batchId: 1 });
 InstituteStudentsSchema.index({ status: 1 });
 InstituteStudentsSchema.index({ firstName: 1 });
 InstituteStudentsSchema.index({ lastName: 1 });
-InstituteStudentsSchema.index({ phone: 1 });
+// enforce unique phone per active student
+// unique phone per batch (same person may register for multiple batches)
+InstituteStudentsSchema.index(
+    { phone: 1, batchId: 1 },
+    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_phone_batch' }
+);
 InstituteStudentsSchema.index({ isDeleted: 1 });
 
 // Search index

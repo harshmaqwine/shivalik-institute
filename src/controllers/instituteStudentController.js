@@ -41,7 +41,7 @@ const createStudent = async (req, res) => {
             email,
             phone,
             alternatePhone,
-            enrollmentNo,
+            enrollmentNo: providedEnrollment,
             gender,
             dateOfBirth,
             age,
@@ -58,6 +58,26 @@ const createStudent = async (req, res) => {
             isCoordinator,
             status
         } = req.body;
+
+        let enrollmentNo = providedEnrollment;
+        
+        // generate enrollment number
+        if (!enrollmentNo) {
+            // find last numeric suffix
+            const last = await InstituteStudentsModel.findOne({
+                enrollmentNo: { $regex: /^SIRE\d{5}$/ }
+            })
+                .sort({ enrollmentNo: -1 })
+                .select('enrollmentNo')
+                .lean();
+
+            let nextNum = 1;
+            if (last && last.enrollmentNo) {
+                const num = parseInt(last.enrollmentNo.slice(4), 10);
+                if (!isNaN(num)) nextNum = num + 1;
+            }
+            enrollmentNo = `SIRE${String(nextNum).padStart(5, '0')}`;
+        }
         let profilePicture = bodyProfilePicture;
 
         // Verify batch exists
@@ -71,7 +91,7 @@ const createStudent = async (req, res) => {
             }
         }
 
-        // if course id is supplied, make sure the course exists (optional depending on business rules)
+        // if course id is supplied, make sure the course exists
         if (CourseId) {
             const course = await InstituteCoursesModel.findOne({ _id: CourseId, isDeleted: false });
             if (!course) {
@@ -79,12 +99,13 @@ const createStudent = async (req, res) => {
             }
         }
 
-        // deduplicate by email and/or enrollment number
+        // deduplicate within the same batch by email/phone; enrollment number remains global
         let existingStudent = null;
-        if (email || enrollmentNo) {
+        if (email || phone || enrollmentNo) {
             const orClause = [];
-            if (email) orClause.push({ email });
-            if (enrollmentNo) orClause.push({ enrollmentNo });
+            if (email) orClause.push({ email, batchId });
+            if (phone) orClause.push({ phone, batchId });
+            if (enrollmentNo) orClause.push({ enrollmentNo, batchId });
             existingStudent = await InstituteStudentsModel.findOne({ $or: orClause });
         }
 
@@ -413,8 +434,15 @@ const updateStudent = async (req, res) => {
             name,
             email,
             phone,
-            status
+            status,
+            enrollmentNo: attemptEnroll 
         } = req.body;
+ 
+        if (attemptEnroll) {
+            return res.status(400).send(
+                response.toJson(messages['en'].instituteStudent.enrollment_no_update)
+            );
+        }
 
         const student = await InstituteStudentsModel.findOne({
             _id: studentId,
@@ -445,6 +473,7 @@ const updateStudent = async (req, res) => {
         if (email && email !== student.email) {
             const emailExists = await InstituteStudentsModel.findOne({
                 email,
+                batchId: student.batchId,
                 _id: { $ne: studentId },
                 isDeleted: false
             });
@@ -458,8 +487,21 @@ const updateStudent = async (req, res) => {
             student.email = email;
         }
 
+        if (phone && phone !== student.phone) {
+            const phoneExists = await InstituteStudentsModel.findOne({
+                phone,
+                batchId: student.batchId,
+                _id: { $ne: studentId },
+                isDeleted: false
+            });
+            if (phoneExists) {
+                return res.status(400).send(
+                    response.toJson(messages['en'].instituteStudent.phone_exists)
+                );
+            }
+            student.phone = phone;
+        }
         if (name) student.name = name;
-        if (phone) student.phone = phone;
         if (status) student.status = status;
 
         if (req.body.documentsSubmitted) {
@@ -577,7 +619,7 @@ const batchDropdownList = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        const filters = { isDeleted: false, status: "ACTIVE" };
+        const filters = { isDeleted: false };
 
         if (req.query.status) {
             req.query.status = String(req.query.status).toUpperCase();
@@ -589,7 +631,13 @@ const batchDropdownList = async (req, res) => {
                 $options: "i"
             };
         }
-        const baseQuery = { ...filters };
+        const baseQuery = { isDeleted: false };
+        if (req.query.instituteCourseId) {
+            baseQuery.instituteCourseId = req.query.instituteCourseId;
+        }
+        if (req.query.instituteSubCourseId) {
+            baseQuery.instituteSubCourseId = req.query.instituteSubCourseId;
+        }
         const batches = await InstituteBatchesModel.find(baseQuery, { _id: 1, batchName: 1 }).lean();
         return res.status(200).send(response.toJson(messages['en'].common.list_success, { batches }));
     }

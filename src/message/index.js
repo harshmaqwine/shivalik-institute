@@ -37,9 +37,11 @@ const message = {
     instituteStudent: {
       batch_not_exist: 'Batch not exists,please try with other.',
       email_exists: 'Email already exists,please try with other.',
+      phone_exists: 'Phone number already exists,please try with other.',
       enrollment_no_exists: 'Enrollment number already exists,please try with other.',
       create_success: 'Student created successfully.',
-      not_exists: 'Student not exists,please try with other.'
+      not_exists: 'Student not exists,please try with other.',
+      enrollment_no_update: 'Enrollment number cannot be updated.',
     },
     module: {
       already_exists: 'Module already exists,please try with other.',

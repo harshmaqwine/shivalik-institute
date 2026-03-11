@@ -27,7 +27,9 @@ exports.create = [
         .isMobilePhone().withMessage('Phone number must be a valid mobile phone number')
         .isLength({ max: 20 }).withMessage('Phone number must be at most 20 characters long'),
     check('enrollmentNo')
-        .notEmpty().withMessage('Enrollment number is required'),
+        .optional({ checkFalsy: true })
+        .matches(/^SIRE\d{5}$/)
+        .withMessage('Enrollment number must match format SIRE00001'),
     check('gender')
         .notEmpty().withMessage('Gender is required')
         .customSanitizer(val => typeof val === 'string' ? val.toUpperCase() : val)
@@ -114,7 +116,10 @@ exports.update = [
 
     check('status')
         .optional()
-        .isIn(['ACTIVE', 'INACTIVE']).withMessage('Invalid status')
+        .isIn(['ACTIVE', 'INACTIVE']).withMessage('Invalid status'),
+
+    // enrollmentNo should not be updated through this endpoint
+    check('enrollmentNo').not().exists().withMessage('Enrollment number cannot be updated')
 ];
 
 exports.delete = [
