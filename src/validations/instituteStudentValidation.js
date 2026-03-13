@@ -22,6 +22,12 @@ exports.create = [
         .notEmpty().withMessage('Email is required')
         .isEmail().withMessage('Email must be a valid email address')
         .isLength({ max: 100 }).withMessage('Email must be at most 100 characters long'),
+    check('countryCode')
+        .notEmpty().withMessage('Country code is required')
+        .isLength({ min: 2, max: 3 }).withMessage('Country code must be 2 or 3 characters long'),
+    check('countryName')
+        .notEmpty().withMessage('Country name is required')
+        .isLength({ max: 100 }).withMessage('Country name must be at most 100 characters long'),
     check('phone')
         .notEmpty().withMessage('Phone number is required')
         .isMobilePhone().withMessage('Phone number must be a valid mobile phone number')
@@ -110,6 +116,12 @@ exports.update = [
         .optional()
         .isEmail().withMessage('Invalid email'),
 
+    check('countryCode')
+        .optional()
+        .isLength({ min: 2, max: 3 }).withMessage('Country code must be 2 or 3 characters long'),
+    check('countryName')
+        .optional()
+        .isLength({ max: 100 }).withMessage('Country name must be at most 100 characters long'),
     check('phone')
         .optional()
         .isLength({ max: 20 }).withMessage('Phone max 20 characters'),

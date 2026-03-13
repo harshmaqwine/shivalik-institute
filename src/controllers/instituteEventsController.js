@@ -41,10 +41,10 @@ const create = async (req, res) => {
         });
         const savedEvent = await newEvent.save();
         return res.status(200).send(response.toJson(messages['en'].common.create_success, savedEvent));
-    }
-    catch (error) {
-        console.error("Error creating event:", error);
-        return res.status(500).send(response.toJson(messages['en'].instituteEvents.create_failure));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -73,13 +73,14 @@ const list = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        const {
-            search,
-            eventDate,
-            location,
-            page = 1,
-            limit = 10
-        } = req.query;
+        const search = req.query.search;
+        const eventDate = req.query.eventDate;
+        const location = req.query.location;
+
+        // pagination
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = CommonConfig.instituteCourseListLimit || 10;
+        const skip = (page - 1) * pageSize;
 
         const filter = { isDeleted: false };
 
@@ -95,15 +96,11 @@ const list = async (req, res) => {
             filter.location = { $regex: location, $options: 'i' };
         }
 
-        const pageNumber = parseInt(page);
-        const limitNumber = parseInt(limit);
-        const skip = (pageNumber - 1) * limitNumber;
-
         const [events, total] = await Promise.all([
             InstituteEventsModel.find(filter)
                 .select('_id eventName eventDate location description status')
                 .skip(skip)
-                .limit(limitNumber)
+                .limit(pageSize)
                 .sort({ createdAt: -1 }),
 
             InstituteEventsModel.countDocuments(filter)
@@ -113,16 +110,15 @@ const list = async (req, res) => {
             response.toJson(messages['en'].common.list_success, {
                 events,
                 total,
-                page: pageNumber,
-                limit: limitNumber
+                currentPage: page,
+                totalPages: total > 0 ? Math.ceil(total / pageSize) : 0
             })
         );
 
-    } catch (error) {
-        console.error("Error listing events:", error);
-        return res.status(500).send(
-            response.toJson(messages['en'].instituteEvents.list_failure)
-        );
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -153,7 +149,7 @@ const details = async (req, res) => {
 
         const event = await InstituteEventsModel
             .findOne({ _id: eventId, isDeleted: false })
-            .select('-isDeleted -deletedAt -__v');  
+            .select('-isDeleted -deletedAt -__v');
 
         if (!event) {
             return res.status(404).send(
@@ -165,11 +161,10 @@ const details = async (req, res) => {
             response.toJson(messages['en'].common.details_success, event)
         );
 
-    } catch (error) {
-        console.error("Error fetching event details:", error);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.not_exists)
-        );
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -205,7 +200,7 @@ const updateEvent = async (req, res) => {
             eventDate,
             location,
             description,
-            status, 
+            status,
             updatedBy: req.userId,
             updatedAt: new Date()
         };
@@ -213,15 +208,15 @@ const updateEvent = async (req, res) => {
             eventId,
             updateData,
             { new: true }
-        );  
+        );
         if (!updatedEvent) {
             return res.status(404).send(response.toJson(messages['en'].instituteEvents.not_found));
         }
         return res.status(200).send(response.toJson(messages['en'].common.update_success, updatedEvent));
-    }
-    catch (error) {
-        console.error("Error updating event:", error);
-        return res.status(500).send(response.toJson(messages['en'].instituteEvents.update_failure));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -264,10 +259,10 @@ const deleteEvent = async (req, res) => {
             return res.status(404).send(response.toJson(messages['en'].instituteEvents.not_found));
         }
         return res.status(200).send(response.toJson(messages['en'].common.delete_success));
-    }
-    catch (error) {
-        console.error("Error deleting event:", error);
-        return res.status(500).send(response.toJson(messages['en'].instituteEvents.delete_failure));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 

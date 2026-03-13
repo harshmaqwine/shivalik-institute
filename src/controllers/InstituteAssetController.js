@@ -44,10 +44,10 @@ const create = async (req, res) => {
         });
         const savedAsset = await newAsset.save();
         return res.status(200).send(response.toJson(messages['en'].common.create_success, savedAsset));
-    }
-    catch (error) {
-        console.error("Error creating asset:", error);
-        return res.status(500).send(response.toJson(messages['en'].instituteAsset.not_exists));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -80,17 +80,14 @@ const list = async (req, res) => {
         //         response.toJson(messages['en'].auth.not_access)
         //     );
         // }
-        const {
-            search,
-            page = 1,
-            limit = 10,
-            sortBy = "createdAt",
-            sortOrder = "desc"
-        } = req.query;
+        const search = req.query.search;
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sortOrder === "asc" ? "asc" : "desc";
 
-        const pageNumber = parseInt(page);
-        const limitNumber = parseInt(limit);
-        const skip = (pageNumber - 1) * limitNumber;
+        // pagination
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = CommonConfig.instituteCourseListLimit || 10;
+        const skip = (page - 1) * pageSize;
 
         const filter = { isDeleted: false };
 
@@ -111,7 +108,7 @@ const list = async (req, res) => {
                 .select("_id assetNumber assetType assetName capacity")
                 .sort(sort)
                 .skip(skip)
-                .limit(limitNumber),
+                .limit(pageSize),
 
             InstituteAssetModel.countDocuments(filter)
         ]);
@@ -126,17 +123,17 @@ const list = async (req, res) => {
         return res.status(200).send(
             response.toJson(messages['en'].common.list_success,
                 {
-                    totalRecords: total,
-                    currentPage: pageNumber,
-                    totalPages: Math.ceil(total / limitNumber),
-                    assets: formattedAssets
+                    assets: formattedAssets,
+                    total,
+                    currentPage: page,
+                    totalPages: total > 0 ? Math.ceil(total / pageSize) : 0
                 }
             )
         );
 
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        const errMess = error.message || error;
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
     }
 };
@@ -186,10 +183,10 @@ const details = async (req, res) => {
             )
         );
 
-    } catch (error) {
-        return res.status(500).send(
-            response.toJson("Internal server error")
-        );
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -243,11 +240,10 @@ const updateAsset = async (req, res) => {
             response.toJson(messages['en'].common.update_success, updatedAsset)
         );
 
-    } catch (error) {
-        console.error("Error updating asset:", error);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.something_wrong)
-        );
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -293,10 +289,10 @@ const deleteAsset = async (req, res) => {
             return res.status(404).send(response.toJson(messages['en'].instituteAsset.not_found));
         }
         return res.status(200).send(response.toJson(messages['en'].common.delete_success));
-    }
-    catch (error) {
-        console.error("Error deleting asset:", error);
-        return res.status(500).send(response.toJson(messages['en'].common.not_exists));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 

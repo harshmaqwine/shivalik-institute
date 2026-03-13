@@ -1,7 +1,7 @@
 const messages = require("../message/index.js");
 const response = require("../config/response.js");
 const { validationResult } = require('express-validator');
-const CommonConfig = require('../config/common.js'); 
+const CommonConfig = require('../config/common.js');
 const { commonStatus } = require('../config/data');
 const expertsModel = require("../models/instituteExperts.js");
 
@@ -37,7 +37,7 @@ const create = async (req, res) => {
         };
         // bankDetails may be sent as JSON string
         if (expertData.bankDetails && typeof expertData.bankDetails === 'string') {
-            try { expertData.bankDetails = JSON.parse(expertData.bankDetails); } catch(e) { /* ignore parse errors */ }
+            try { expertData.bankDetails = JSON.parse(expertData.bankDetails); } catch (e) { /* ignore parse errors */ }
         }
 
         // panCard and profilePicture URLs should be sent from the frontend
@@ -51,10 +51,10 @@ const create = async (req, res) => {
         const newExpert = new expertsModel.Experts(expertData);
         const savedExpert = await newExpert.save();
         return res.status(200).send(response.toJson(messages['en'].experts.create_success, savedExpert));
-    }
-    catch (error) {
-        console.error("Error creating expert:", error);
-        return res.status(500).send(response.toJson(messages['en'].experts.create_failure));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 }
 
@@ -83,9 +83,9 @@ const list = async (req, res) => {
         //     );
         // }
 
-          // Pagination
+        // pagination
         const page = parseInt(req.query.page) || 1;
-        const pageSize = parseInt(req.query.pageSize) || 10;
+        const pageSize = CommonConfig.instituteCourseListLimit || 10;
         const skip = (page - 1) * pageSize;
 
         // Sorting
@@ -96,7 +96,7 @@ const list = async (req, res) => {
         // Base filter
         const filters = { isDeleted: false };
 
-        // 🔎 Search (firstName + lastName + specialization)
+        // search 
         if (req.query.search) {
             filters.$or = [
                 { firstName: { $regex: req.query.search, $options: 'i' } },
@@ -139,20 +139,16 @@ const list = async (req, res) => {
         return res.status(200).send(
             response.toJson(messages['en'].experts.list_success, {
                 experts,
-                pagination: {
-                    totalRecords,
-                    currentPage: page,
-                    totalPages: totalRecords > 0 ? Math.ceil(totalRecords / pageSize) : 0,
-                    pageSize
-                }
+                total: totalRecords,
+                currentPage: page,
+                totalPages: totalRecords > 0 ? Math.ceil(totalRecords / pageSize) : 0
             })
         );
 
-    } catch (error) {
-        console.error("Error fetching experts:", error);
-        return res.status(500).send(
-            response.toJson(messages['en'].experts.list_failure)
-        );
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -188,9 +184,10 @@ const details = async (req, res) => {
             return res.status(404).send(response.toJson(messages['en'].experts.not_found));
         }
         return res.status(200).send(response.toJson(messages['en'].experts.details_success, expert));
-    } catch (error) {
-        console.error("Error fetching expert details:", error);
-        return res.status(500).send(response.toJson(messages['en'].experts.details_failure));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -229,7 +226,7 @@ const update = async (req, res) => {
             updatedAt: new Date()
         };
         if (updateData.bankDetails && typeof updateData.bankDetails === 'string') {
-            try { updateData.bankDetails = JSON.parse(updateData.bankDetails); } catch(e) { }
+            try { updateData.bankDetails = JSON.parse(updateData.bankDetails); } catch (e) { }
         }
         // frontend must supply any new panCard/profilePicture URLs
         if (req.body.panCard) {
@@ -255,11 +252,10 @@ const update = async (req, res) => {
             response.toJson(messages['en'].experts.update_success, updatedExpert)
         );
 
-    } catch (error) {
-        console.error("Error updating expert:", error);
-        return res.status(500).send(
-            response.toJson(messages['en'].experts.update_failure)
-        );
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -298,9 +294,10 @@ const deleteExpert = async (req, res) => {
             return res.status(404).send(response.toJson(messages['en'].experts.not_found));
         }
         return res.status(200).send(response.toJson(messages['en'].experts.delete_success));
-    } catch (error) {
-        console.error("Error deleting expert:", error);
-        return res.status(500).send(response.toJson(messages['en'].experts.delete_failure));
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 }
 

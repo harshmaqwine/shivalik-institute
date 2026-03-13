@@ -36,11 +36,12 @@ const materialsList = async (req, res) => {
                 { moduleNumber: { $regex: req.query.search, $options: 'i' } }
             ];
         }
-
-        // pagination/sorting params
+        // pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const pageSize = CommonConfig.instituteCourseListLimit || 10;
+        const skip = (page - 1) * pageSize;
+
+        // sorting
         const sortBy = req.query.sortBy || 'moduleNumber';
         const sortOrder = req.query.sort === 'asc' ? 1 : -1;
         const sorting = { [sortBy]: sortOrder };
@@ -52,7 +53,7 @@ const materialsList = async (req, res) => {
                 .select('_id moduleNumber name materialLink status instituteCourseId')
                 .sort(sorting)
                 .skip(skip)
-                .limit(limit)
+                .limit(pageSize)
                 .lean(),
             InstituteModulesModel.countDocuments(moduleFilters)
         ]);
@@ -71,12 +72,9 @@ const materialsList = async (req, res) => {
                 messages['en'].common.list_success,
                 {
                     modules: formatted,
-                    pagination: {
-                        totalRecords: total,
-                        currentPage: page,
-                        totalPages: Math.ceil(total / limit),
-                        pageSize: limit
-                    }
+                    total,
+                    currentPage: page,
+                    totalPages: total > 0 ? Math.ceil(total / pageSize) : 0
                 }
             )
         );

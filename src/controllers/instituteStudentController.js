@@ -39,6 +39,8 @@ const createStudent = async (req, res) => {
             firstName,
             lastName,
             email,
+            countryCode,
+            countryName,
             phone,
             alternatePhone,
             enrollmentNo: providedEnrollment,
@@ -60,7 +62,7 @@ const createStudent = async (req, res) => {
         } = req.body;
 
         let enrollmentNo = providedEnrollment;
-        
+
         // generate enrollment number
         if (!enrollmentNo) {
             // find last numeric suffix
@@ -139,6 +141,8 @@ const createStudent = async (req, res) => {
             firstName,
             lastName,
             email,
+            countryCode,
+            countryName,
             phone,
             alternatePhone,
             enrollmentNo,
@@ -157,7 +161,7 @@ const createStudent = async (req, res) => {
             profilePicture,
             isCoordinator,
             status,
-            enrolledBy: req.user?._id
+            enrolledBy: req.user?._id,
         });
         await newStudent.save();
 
@@ -169,8 +173,8 @@ const createStudent = async (req, res) => {
                 response.toJson(messages['en'].instituteStudent.email_exists)
             );
         }
-        const statusCode = error.statusCode || 500;
-        const errMess = error.message || error;
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
     }
 };
@@ -200,21 +204,22 @@ const listStudents = async (req, res) => {
         //     );
         // } 
 
-        let {
-            batchId,
-            status,
-            name,
-            email,
-            phone,
-            page = 1,
-            limit = 10,
-            sortBy = "createdAt",
-            sortOrder = "desc",
-            search
-        } = req.query;
+        const batchId = req.query.batchId;
+        const status = req.query.status;
+        const name = req.query.name;
+        const email = req.query.email;
+        countryCode = req.query.countryCode;
+        countryName = req.query.countryName;
+        const phone = req.query.phone;
+        const search = req.query.search;
 
-        page = parseInt(page);
-        limit = parseInt(limit);
+        // pagination
+        const page = parseInt(req.query.page) || 1;
+        const pageSize = CommonConfig.instituteCourseListLimit || 10;
+        const skip = (page - 1) * pageSize;
+
+        const sortBy = req.query.sortBy || "createdAt";
+        const sortOrder = req.query.sortOrder === "asc" ? 1 : -1;
 
         const filter = { isDeleted: false };
 
@@ -229,6 +234,8 @@ const listStudents = async (req, res) => {
         }
 
         if (email) filter.email = { $regex: email, $options: "i" };
+        if (countryCode) filter.countryCode = { $regex: countryCode, $options: "i" };
+        if (countryName) filter.countryName = { $regex: countryName, $options: "i" };
         if (phone) filter.phone = { $regex: phone, $options: "i" };
 
         if (search) {
@@ -248,7 +255,7 @@ const listStudents = async (req, res) => {
 
         const students = await InstituteStudentsModel
             .find(filter)
-            .select("enrollmentNo firstName lastName email phone batchId CourseId status")
+            .select("enrollmentNo firstName lastName email phone batchId CourseId status countryCode countryName")
             .populate({
                 path: "batchId",
                 select: "batchName"
@@ -258,8 +265,8 @@ const listStudents = async (req, res) => {
                 select: "name"
             })
             .sort(sort)
-            .skip((page - 1) * limit)
-            .limit(limit);
+            .skip(skip)
+            .limit(pageSize);
 
         const formattedStudents = students.map(student => ({
             _id: student._id,
@@ -268,6 +275,8 @@ const listStudents = async (req, res) => {
             lastName: student.lastName,
             email: student.email,
             phone: student.phone,
+            countryCode: student.countryCode,
+            countryName: student.countryName,
             batch: student.batchId
                 ? { _id: student.batchId._id, name: student.batchId.batchName }
                 : null,
@@ -280,20 +289,15 @@ const listStudents = async (req, res) => {
         return res.status(200).json({
             success: true,
             data: formattedStudents,
-            pagination: {
-                total,
-                page,
-                limit,
-                totalPages: Math.ceil(total / limit)
-            }
+            total,
+            currentPage: page,
+            totalPages: total > 0 ? Math.ceil(total / pageSize) : 0
         });
 
-    } catch (error) {
-        console.error("List Students Error:", error);
-        return res.status(500).json({
-            success: false,
-            message: "Something went wrong"
-        });
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -351,6 +355,8 @@ const detailStudent = async (req, res) => {
             lastName: student.lastName,
             enrollmentNo: student.enrollmentNo,
             email: student.email,
+            countryCode: student.countryCode,
+            countryName: student.countryName,
             phone: student.phone,
             alternatePhone: student.alternatePhone,
             gender: student.gender,
@@ -393,11 +399,9 @@ const detailStudent = async (req, res) => {
             )
         );
 
-    } catch (error) {
-
-        const statusCode = error.statusCode || 500;
-        const errMess = error.message || error;
-
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
     }
 };
@@ -435,9 +439,9 @@ const updateStudent = async (req, res) => {
             email,
             phone,
             status,
-            enrollmentNo: attemptEnroll 
+            enrollmentNo: attemptEnroll
         } = req.body;
- 
+
         if (attemptEnroll) {
             return res.status(400).send(
                 response.toJson(messages['en'].instituteStudent.enrollment_no_update)
@@ -530,9 +534,9 @@ const updateStudent = async (req, res) => {
             )
         );
 
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        const errMess = error.message || error;
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
     }
 };
@@ -589,9 +593,9 @@ const deleteStudent = async (req, res) => {
             )
         );
 
-    } catch (error) {
-        const statusCode = error.statusCode || 500;
-        const errMess = error.message || error;
+    } catch (err) {
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
     }
 };
@@ -640,9 +644,7 @@ const batchDropdownList = async (req, res) => {
         }
         const batches = await InstituteBatchesModel.find(baseQuery, { _id: 1, batchName: 1 }).lean();
         return res.status(200).send(response.toJson(messages['en'].common.list_success, { batches }));
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -686,10 +688,9 @@ const courseDropdownList = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(err.message || err)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 

@@ -35,6 +35,14 @@ const InstituteStudentsSchema = new Schema({
         lowercase: true,
         trim: true
     },
+    countryCode: {
+        type: String,
+        required: true
+    },
+    countryName: {
+        type: String,
+        required: true
+    },
     phone: {
         type: String,
         required: true
@@ -135,7 +143,7 @@ const InstituteStudentsSchema = new Schema({
         type: Date
     }
 });
- 
+
 InstituteStudentsSchema.index(
     { email: 1, batchId: 1 },
     { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_email_batch' }

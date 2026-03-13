@@ -309,6 +309,7 @@ const list = async (req, res) => {
         //     );
         // }
 
+        // pagination
         const page = parseInt(req.query.page) || 1;
         const pageSize = CommonConfig.instituteCourseListLimit || 10;
         const skip = (page - 1) * pageSize;
@@ -347,10 +348,9 @@ const list = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(err.message || err)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -380,10 +380,9 @@ const details = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(err.message || err)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -446,10 +445,9 @@ const subCourseDetails = async (req, res) => {
             )
         );
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(err.message || err)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -580,7 +578,6 @@ const subCourcePublicList = async (req, res) => {
         return res.status(200).send(response.toJson(messages['en'].common.list_success, data));
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -607,10 +604,10 @@ const listSubCourse = async (req, res) => {
         // }
 
 
-        // PAGINATION
+        // pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const pageSize = CommonConfig.instituteCourseListLimit || 10;
+        const skip = (page - 1) * pageSize;
 
         // sorting
         const sortBy = req.query.sortBy || "createdAt";
@@ -648,7 +645,7 @@ const listSubCourse = async (req, res) => {
                 })
                 .sort(sortObject)
                 .skip(skip)
-                .limit(limit)
+                .limit(pageSize)
                 .lean(),
 
             InstituteSubCoursesModel.countDocuments(baseQuery)
@@ -672,21 +669,17 @@ const listSubCourse = async (req, res) => {
                 messages['en'].common.list_success,
                 {
                     subCourses: formattedData,
-                    pagination: {
-                        totalRecords: total,
-                        currentPage: page,
-                        totalPages: Math.ceil(total / limit),
-                        pageSize: limit
-                    }
+                    total,
+                    currentPage: page,
+                    totalPages: Math.ceil(total / pageSize)
                 }
             )
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(err.message)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -768,7 +761,6 @@ const batchPublicList = async (req, res) => {
         return res.status(200).send(response.toJson(messages['en'].common.list_success, data));
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -857,7 +849,6 @@ const createBatch = async (req, res) => {
 
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -942,7 +933,6 @@ const updateBatch = async (req, res) => {
         return res.status(200).send(response.toJson(messages['en'].common.update_success));
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -984,9 +974,7 @@ const deleteBatch = async (req, res) => {
             deletedAt: new Date()
         });
         return res.status(200).send(response.toJson(messages['en'].common.delete_success));
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1013,10 +1001,10 @@ const listBatch = async (req, res) => {
         //     );
         // }
 
-        // PAGINATION
+        // pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const pageSize = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * pageSize;
 
         // Sorting
         const sortBy = req.query.sortBy || "createdAt";
@@ -1038,7 +1026,7 @@ const listBatch = async (req, res) => {
             InstituteBatchesModel.find(baseQuery)
                 .sort(sorting)
                 .skip(skip)
-                .limit(limit)
+                .limit(pageSize)
                 .populate({ path: 'instituteCourseId', select: 'name' })
                 .populate({ path: 'instituteSubCourseId', select: 'name' })
                 .lean(),
@@ -1099,17 +1087,13 @@ const listBatch = async (req, res) => {
         return res.status(200).send(
             response.toJson(messages['en'].common.list_success, {
                 batches,
-                pagination: {
-                    totalRecords,
-                    currentPage: page,
-                    totalPages: Math.ceil(totalRecords / limit),
-                    pageSize: limit
-                }
+                total: totalRecords,
+                currentPage: page,
+                totalPages: Math.ceil(totalRecords / pageSize)
             })
         );
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1200,7 +1184,6 @@ const batchDetails = async (req, res) => {
             )
         );
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1244,10 +1227,9 @@ const courseDropdownList = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(err.message || err)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -1275,9 +1257,7 @@ const subCourseDropdownList = async (req, res) => {
         }
         const subCourses = await InstituteSubCoursesModel.find(baseQuery, { _id: 1, name: 1 }).lean();
         return res.status(200).send(response.toJson(messages['en'].common.list_success, { subCourses }));
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1323,9 +1303,7 @@ const batchDropdownList = async (req, res) => {
         }
         const batches = await InstituteBatchesModel.find(baseQuery, { _id: 1, batchName: 1 }).lean();
         return res.status(200).send(response.toJson(messages['en'].common.list_success, { batches }));
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1371,10 +1349,9 @@ const moduleDropdownList = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.not_exists)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -1407,7 +1384,6 @@ const createModule = async (req, res) => {
         return res.status(200).send(response.toJson(messages['en'].common.create_success, { module: newModule }));
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1445,9 +1421,7 @@ const updateModule = async (req, res) => {
             }
         });
         return res.status(200).send(response.toJson(messages['en'].common.update_success));
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1473,10 +1447,10 @@ const listModule = async (req, res) => {
         //     );
         // }
 
-        // PAGINATION
+        // pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const pageSize = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * pageSize;
 
         // Sorting
         const sortBy = req.query.sortBy || "createdAt";
@@ -1517,7 +1491,7 @@ const listModule = async (req, res) => {
                 .populate("instituteSubCourseId", "name")
                 .sort(sorting)
                 .skip(skip)
-                .limit(limit)
+                .limit(pageSize)
                 .lean(),
 
             InstituteModulesModel.countDocuments(baseQuery)
@@ -1547,18 +1521,16 @@ const listModule = async (req, res) => {
         return res.status(200).send(
             response.toJson(messages['en'].common.list_success, {
                 modules: formattedModules,
-                pagination: {
-                    totalRecords: totalRecords,
-                    currentPage: page,
-                    totalPages: Math.ceil(totalRecords / limit),
-                    pageSize: limit
-                }
+                total: totalRecords,
+                currentPage: page,
+                totalPages: Math.ceil(totalRecords / pageSize)
             })
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(response.toJson(err.message));
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -1617,8 +1589,9 @@ const moduleDetails = async (req, res) => {
             response.toJson(messages['en'].common.details_success, formattedResponse)
         );
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(response.toJson(err.message));
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -1650,9 +1623,7 @@ const deleteModule = async (req, res) => {
             deletedAt: new Date()
         });
         return res.status(200).send(response.toJson(messages['en'].common.delete_success));
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
         const errMess = err.message || err;
         return res.status(statusCode).send(response.toJson(errMess));
@@ -1735,10 +1706,9 @@ const expertDropdownList = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.server_error)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -1851,12 +1821,9 @@ const createLecture = async (req, res) => {
         );
 
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
-        return res.status(statusCode).send(
-            response.toJson(errMess)
-        );
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -1978,12 +1945,9 @@ const updateLecture = async (req, res) => {
             response.toJson(messages['en'].common.update_success, { lecture: updatedData })
         );
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
-        return res.status(statusCode).send(
-            response.toJson(errMess)
-        );
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -2023,10 +1987,10 @@ const listLecture = async (req, res) => {
             };
         }
 
-        // pagination parameters
+        // pagination
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 10;
-        const skip = (page - 1) * limit;
+        const pageSize = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * pageSize;
 
         // sorting
         const sortBy = req.query.sortBy || "lectureDate";
@@ -2042,7 +2006,7 @@ const listLecture = async (req, res) => {
                 .populate("expertId", "prefixName firstName lastName")
                 .sort(sorting)
                 .skip(skip)
-                .limit(limit)
+                .limit(pageSize)
                 .lean(),
             InstituteLectures.countDocuments(filters)
         ]);
@@ -2089,21 +2053,17 @@ const listLecture = async (req, res) => {
                 messages['en'].common.list_success,
                 {
                     lectures: formattedLectures,
-                    pagination: {
-                        totalRecords: total,
-                        currentPage: page,
-                        totalPages: Math.ceil(total / limit),
-                        pageSize: limit
-                    }
+                    total,
+                    currentPage: page,
+                    totalPages: Math.ceil(total / pageSize)
                 }
             )
         );
 
     } catch (err) {
-        console.log(err);
-        return res.status(500).send(
-            response.toJson(messages['en'].common.not_exists)
-        );
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -2185,12 +2145,9 @@ const lectureDetails = async (req, res) => {
             )
         );
     } catch (err) {
-        console.log(err);
         const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
-        return res.status(statusCode).send(
-            response.toJson(errMess)
-        );
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
@@ -2231,14 +2188,10 @@ const deleteLecture = async (req, res) => {
         return res.status(200).send(
             response.toJson(messages['en'].common.delete_success)
         );
-    }
-    catch (err) {
-        console.log(err);
+    } catch (err) {
         const statusCode = err.statusCode || 500;
-        const errMess = err.message || messages['en'].common.server_error;
-        return res.status(statusCode).send(
-            response.toJson(errMess)
-        );
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 }
 
@@ -2260,44 +2213,45 @@ const updateStatus = async (req, res) => {
         }
 
         // Update the main Course status
-        await InstituteCoursesModel.findByIdAndUpdate(courseId, { 
-            status, 
-            updatedAt: new Date() 
+        await InstituteCoursesModel.findByIdAndUpdate(courseId, {
+            status,
+            updatedAt: new Date()
         });
 
         // If status is INACTIVE, cascade to all child entities
         if (status === 'INACTIVE') {
             const query = { instituteCourseId: courseId };
-            const lectureQuery = { courseId: courseId };  
-            const studentQuery = { CourseId: courseId }; 
+            const lectureQuery = { courseId: courseId };
+            const studentQuery = { CourseId: courseId };
 
             await Promise.all([
                 // Update Sub-Courses
                 InstituteSubCoursesModel.updateMany(query, { status: 'INACTIVE' }),
-                
+
                 // Update Batches
                 InstituteBatchesModel.updateMany(query, { status: 'INACTIVE' }),
-                
+
                 // Update Modules
                 InstituteModulesModel.updateMany(query, { status: 'INACTIVE' }),
-                
+
                 // Update Lectures
                 InstituteLectures.updateMany(lectureQuery, { status: 'INACTIVE' }),
-                
+
                 // Update Students
                 InstituteStudentsModel.updateMany(studentQuery, { status: 'INACTIVE' })
             ]);
         }
 
         return res.status(200).send(
-            response.toJson(messages['en'].common.update_success, { 
-                message: `Course and related entities marked as ${status}` 
+            response.toJson(messages['en'].common.update_success, {
+                message: `Course and related entities marked as ${status}`
             })
         );
 
     } catch (err) {
-        console.error("Error in patchStatus:", err);
-        return res.status(500).send(response.toJson(err.message || err));
+        const statusCode = err.statusCode || 500;
+        const errMess = err.message || err;
+        return res.status(statusCode).send(response.toJson(errMess));
     }
 };
 
