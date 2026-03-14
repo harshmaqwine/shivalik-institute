@@ -5,12 +5,20 @@ module.exports = {
    * @returns {Promise<void>}
    */
   async up(db, client) {
-    const exists = await db.listCollections({ name: 'institutestudents' }, { nameOnly: true }).toArray();
-    if (exists.length) {
-      return;
-    }
+    await db.collection("institutestudents").updateMany(
+      {},
+      {
+        $set: {
+          subCourseId: null,
+          countryCode: "+91",
+          countryCodeName: "IN",
+        }
+      },
+      { bypassDocumentValidation: true }
+    );
 
-    await db.createCollection("institutestudents", {
+    await db.command({
+      collMod: "institutestudents", // MModify the existing collection
       validator: {
         $jsonSchema: {
           bsonType: "object",
@@ -32,7 +40,7 @@ module.exports = {
             },
             email: {
               bsonType: "string"
-            }, 
+            },
             phone: {
               bsonType: "string"
             },
@@ -63,77 +71,96 @@ module.exports = {
             currentDesignation: {
               bsonType: "string"
             },
-            yearsOfExperienceRealEstate: { 
-              bsonType: "int" 
+            yearsOfExperienceRealEstate: {
+              bsonType: "int"
             },
-            courseStartDate: { 
-              bsonType: "date" 
+            courseStartDate: {
+              bsonType: "date"
             },
-            enrolledBy: { 
-              bsonType: "objectId" 
+            enrolledBy: {
+              bsonType: "objectId"
             },
-            holdingSeat: { 
-              bsonType: "bool" 
+            holdingSeat: {
+              bsonType: "bool"
             },
-            enrolledCourse: { 
-              bsonType: "bool" 
+            enrolledCourse: {
+              bsonType: "bool"
             },
             documentsSubmitted: {
               bsonType: "object",
               properties: {
-                aadharCard: { 
-                  bsonType: "string" 
+                aadharCard: {
+                  bsonType: "string"
                 },
-                receipt: { 
-                  bsonType: "string" 
+                receipt: {
+                  bsonType: "string"
                 },
-                photo: { 
-                  bsonType: "string" 
+                photo: {
+                  bsonType: "string"
                 }
               }
             },
-            profilePicture: { 
-              bsonType: "string" 
+            profilePicture: {
+              bsonType: "string"
             },
-            isCoordinator: { 
-              bsonType: "bool" 
+            isCoordinator: {
+              bsonType: "bool"
             },
-            status: { 
-              bsonType: "string" 
+            status: {
+              bsonType: "string"
             },
-            isDeleted: { 
-              bsonType: "bool" 
+            isDeleted: {
+              bsonType: "bool"
             },
-            createdBy: { 
-              bsonType: "objectId" 
+            createdBy: {
+              bsonType: "objectId"
             },
-            updatedBy: { 
-              bsonType: "objectId" 
+            updatedBy: {
+              bsonType: "objectId"
             },
-            createdAt: { 
-              bsonType: "date" 
+            createdAt: {
+              bsonType: "date"
             },
-            updatedAt: { 
-              bsonType: "date" 
+            updatedAt: {
+              bsonType: "date"
             },
-            deletedAt: { 
-              bsonType: "date" 
+            deletedAt: {
+              bsonType: "date"
+            },
+            subCourseId: {
+              bsonType: ["objectId", "null"]
+            },
+            countryCode: {
+              bsonType: "string",
+            },
+            countryCodeName: {
+              bsonType: "string",
             }
           },
         },
       },
     });
   },
-
   /**
    * @param db {import('mongodb').Db}
    * @param client {import('mongodb').MongoClient}
    * @returns {Promise<void>}
    */
   async down(db, client) {
-    const exists = await db.listCollections({ name: 'institutestudents' }, { nameOnly: true }).toArray();
-    if (exists.length) {
-      await db.collection('institutestudents').drop();
-    }
+    await db.collection("institutestudents").updateMany(
+      {},
+      {
+        $unset: {
+          subCourseId: "",
+          countryCode: "",
+          countryCodeName: ""
+        }
+      },
+      { bypassDocumentValidation: true }
+    );
+    await db.command({
+      collMod: "institutestudents",
+      validator: {} // Reset to no validation
+    });
   }
 };

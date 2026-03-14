@@ -9,6 +9,11 @@ const InstituteStudentsSchema = new Schema({
         ref: 'institutecourses',
         required: true
     },
+    subCourseId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'institutesubcourses', 
+        default: null
+    },
     batchId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'institutebatches',
@@ -39,7 +44,7 @@ const InstituteStudentsSchema = new Schema({
         type: String,
         required: true
     },
-    countryName: {
+    countryCodeName: {
         type: String,
         required: true
     },
@@ -145,8 +150,8 @@ const InstituteStudentsSchema = new Schema({
 });
 
 InstituteStudentsSchema.index(
-    { email: 1, batchId: 1 },
-    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_email_batch' }
+    { email: 1, batchId: 1, CourseId: 1, subCourseId: 1 },
+    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_email_batch_course_subcourse' }
 );
 
 // Unique Enrollment No
@@ -160,11 +165,10 @@ InstituteStudentsSchema.index({ batchId: 1 });
 InstituteStudentsSchema.index({ status: 1 });
 InstituteStudentsSchema.index({ firstName: 1 });
 InstituteStudentsSchema.index({ lastName: 1 });
-// enforce unique phone per active student
-// unique phone per batch (same person may register for multiple batches)
+// enforce unique phone per active student per course/subcourse/batch combination
 InstituteStudentsSchema.index(
-    { phone: 1, batchId: 1 },
-    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_phone_batch' }
+    { phone: 1, batchId: 1, CourseId: 1, subCourseId: 1 },
+    { unique: true, partialFilterExpression: { isDeleted: false }, name: 'idx_student_phone_batch_course_subcourse' }
 );
 InstituteStudentsSchema.index({ isDeleted: 1 });
 

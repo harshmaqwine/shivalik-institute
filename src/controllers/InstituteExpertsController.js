@@ -124,6 +124,14 @@ const list = async (req, res) => {
             filters.status = req.query.status;
         }
 
+        if (req.query.countryCode) {
+            filters.countryCode = req.query.countryCode;
+        }
+
+        if (req.query.countryCodeName) {
+            filters.countryCodeName = { $regex: req.query.countryCodeName, $options: 'i' };
+        }
+
         // Fetch Data
         const [experts, totalRecords] = await Promise.all([
             expertsModel.Experts.find(filters)

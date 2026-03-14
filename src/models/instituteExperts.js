@@ -21,6 +21,14 @@ const expertsSchema = new Schema({
         type: String,
         required: true, 
     },
+    countryCode: {
+        type: String,
+        required: true
+    },
+    countryCodeName: {
+        type: String,
+        required: true
+    },
     contactNo: {
         type: String,
         required: true

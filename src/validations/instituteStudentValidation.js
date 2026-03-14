@@ -8,6 +8,10 @@ exports.create = [
         .optional({ nullable: true })
         .isMongoId()
         .withMessage('Batch Id must be a valid MongoDB ObjectId'),
+    check('subCourseId')
+        .optional({ nullable: true, checkFalsy: true })
+        .isMongoId()
+        .withMessage('Sub Course Id must be a valid MongoDB ObjectId'),
     check('prefixName')
         .optional({ nullable: true, checkFalsy: true })
         .customSanitizer(val => typeof val === 'string' ? val.toUpperCase() : val)
@@ -25,7 +29,7 @@ exports.create = [
     check('countryCode')
         .notEmpty().withMessage('Country code is required')
         .isLength({ min: 2, max: 3 }).withMessage('Country code must be 2 or 3 characters long'),
-    check('countryName')
+    check('countryCodeName')
         .notEmpty().withMessage('Country name is required')
         .isLength({ max: 100 }).withMessage('Country name must be at most 100 characters long'),
     check('phone')
@@ -102,11 +106,17 @@ exports.update = [
     check('studentId')
         .notEmpty().withMessage('Student Id is required')
         .isMongoId().withMessage('Invalid Student Id'),
-
+    check('CourseId')
+        .optional()
+        .isMongoId().withMessage('Course Id must be a valid MongoDB ObjectId'),
     check('batchId')
         .optional({ nullable: true })
         .isMongoId()
         .withMessage('Batch Id must be a valid MongoDB ObjectId'),
+    check('subCourseId')
+        .optional({ nullable: true, checkFalsy: true })
+        .isMongoId()
+        .withMessage('Sub Course Id must be a valid MongoDB ObjectId'),
 
     check('name')
         .optional()
@@ -119,7 +129,7 @@ exports.update = [
     check('countryCode')
         .optional()
         .isLength({ min: 2, max: 3 }).withMessage('Country code must be 2 or 3 characters long'),
-    check('countryName')
+    check('countryCodeName')
         .optional()
         .isLength({ max: 100 }).withMessage('Country name must be at most 100 characters long'),
     check('phone')

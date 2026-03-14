@@ -5,6 +5,7 @@ const CommonConfig = require('../config/common.js');
 const CommonFun = require('../libs/common.js');
 const InstituteCoursesModel = require('../models/instituteCourses.js');
 const InstituteBatchesModel = require("../models/instituteBatches.js");
+const InstituteSubCoursesModel = require("../models/instituteSubCourses.js");
 const InstituteStudentsModel = require("../models/instituteStudents.js");
 
 /**
@@ -34,13 +35,14 @@ const createStudent = async (req, res) => {
 
         const {
             CourseId,
+            subCourseId,
             batchId,
             prefixName,
             firstName,
             lastName,
             email,
             countryCode,
-            countryName,
+            countryCodeName,
             phone,
             alternatePhone,
             enrollmentNo: providedEnrollment,
@@ -101,13 +103,24 @@ const createStudent = async (req, res) => {
             }
         }
 
-        // deduplicate within the same batch by email/phone; enrollment number remains global
+        // if subCourse id is supplied, make sure the sub-course exists
+        if (subCourseId) {
+            const subCourse = await InstituteSubCoursesModel.findOne({ _id: subCourseId, isDeleted: false });
+            if (!subCourse) {
+                return res.status(404).send(response.toJson(messages['en'].instituteCourse.subcourse_invalid));
+            }
+        }
+
+
+
+        // deduplicate within the same batch/course/subcourse by email/phone; enrollment number remains global
         let existingStudent = null;
         if (email || phone || enrollmentNo) {
             const orClause = [];
-            if (email) orClause.push({ email, batchId });
-            if (phone) orClause.push({ phone, batchId });
-            if (enrollmentNo) orClause.push({ enrollmentNo, batchId });
+            const base = { batchId, CourseId, subCourseId };
+            if (email) orClause.push({ ...base, email });
+            if (phone) orClause.push({ ...base, phone });
+            if (enrollmentNo) orClause.push({ ...base, enrollmentNo });
             existingStudent = await InstituteStudentsModel.findOne({ $or: orClause });
         }
 
@@ -136,13 +149,14 @@ const createStudent = async (req, res) => {
         // Assemble student document
         const newStudent = new InstituteStudentsModel({
             CourseId,
+            subCourseId,
             batchId,
             prefixName: normPrefix,
             firstName,
             lastName,
             email,
             countryCode,
-            countryName,
+            countryCodeName,
             phone,
             alternatePhone,
             enrollmentNo,
@@ -209,7 +223,7 @@ const listStudents = async (req, res) => {
         const name = req.query.name;
         const email = req.query.email;
         countryCode = req.query.countryCode;
-        countryName = req.query.countryName;
+        countryCodeName = req.query.countryCodeName;
         const phone = req.query.phone;
         const search = req.query.search;
 
@@ -235,7 +249,7 @@ const listStudents = async (req, res) => {
 
         if (email) filter.email = { $regex: email, $options: "i" };
         if (countryCode) filter.countryCode = { $regex: countryCode, $options: "i" };
-        if (countryName) filter.countryName = { $regex: countryName, $options: "i" };
+        if (countryCodeName) filter.countryCodeName = { $regex: countryCodeName, $options: "i" };
         if (phone) filter.phone = { $regex: phone, $options: "i" };
 
         if (search) {
@@ -255,7 +269,7 @@ const listStudents = async (req, res) => {
 
         const students = await InstituteStudentsModel
             .find(filter)
-            .select("enrollmentNo firstName lastName email phone batchId CourseId status countryCode countryName")
+            .select("enrollmentNo firstName lastName email phone batchId CourseId status countryCode countryCodeName")
             .populate({
                 path: "batchId",
                 select: "batchName"
@@ -276,7 +290,7 @@ const listStudents = async (req, res) => {
             email: student.email,
             phone: student.phone,
             countryCode: student.countryCode,
-            countryName: student.countryName,
+            countryCodeName: student.countryCodeName,
             batch: student.batchId
                 ? { _id: student.batchId._id, name: student.batchId.batchName }
                 : null,
@@ -356,7 +370,7 @@ const detailStudent = async (req, res) => {
             enrollmentNo: student.enrollmentNo,
             email: student.email,
             countryCode: student.countryCode,
-            countryName: student.countryName,
+            countryCodeName: student.countryCodeName,
             phone: student.phone,
             alternatePhone: student.alternatePhone,
             gender: student.gender,
@@ -430,24 +444,38 @@ const updateStudent = async (req, res) => {
         //     return res.status(403).send(
         //         response.toJson(messages['en'].auth.not_access)
         //     );
-        // }
-
+        // } 
         const { studentId } = req.params;
         const {
+            CourseId,
             batchId,
-            name,
+            subCourseId,
+            prefixName,
+            firstName,
+            lastName,
             email,
+            countryCode,
+            countryCodeName,
             phone,
-            status,
-            enrollmentNo: attemptEnroll
+            alternatePhone,
+            gender,
+            dateOfBirth,
+            age,
+            state,
+            city,
+            highestEducation,
+            currentDesignation,
+            yearsOfExperienceRealEstate,
+            courseStartDate,
+            holdingSeat,
+            enrolledCourse,
+            documentsSubmitted,
+            profilePicture,
+            isCoordinator,
+            status
         } = req.body;
 
-        if (attemptEnroll) {
-            return res.status(400).send(
-                response.toJson(messages['en'].instituteStudent.enrollment_no_update)
-            );
-        }
-
+        // check if student exists and not deleted
         const student = await InstituteStudentsModel.findOne({
             _id: studentId,
             isDeleted: false
@@ -459,79 +487,90 @@ const updateStudent = async (req, res) => {
             );
         }
 
+        //  check if new CourseId, batchId, subCourseId (if provided) are valid
+        if (CourseId) {
+            const courseExists = await InstituteCoursesModel.findOne({ _id: CourseId, isDeleted: false });
+            if (!courseExists) return res.status(404).send(response.toJson(messages['en'].common.not_exists));
+        }
+
         if (batchId) {
-            const batchExists = await InstituteBatchesModel.findOne({
-                _id: batchId,
-                isDeleted: false
-            });
-
-            if (!batchExists) {
-                return res.status(404).send(
-                    response.toJson(messages['en'].instituteBatch.not_exists)
-                );
-            }
-
-            student.batchId = batchId;
+            const batchExists = await InstituteBatchesModel.findOne({ _id: batchId, isDeleted: false });
+            if (!batchExists) return res.status(404).send(response.toJson(messages['en'].instituteBatch.not_exists));
         }
 
-        if (email && email !== student.email) {
-            const emailExists = await InstituteStudentsModel.findOne({
-                email,
-                batchId: student.batchId,
-                _id: { $ne: studentId },
-                isDeleted: false
-            });
-
-            if (emailExists) {
-                return res.status(400).send(
-                    response.toJson(messages['en'].instituteStudent.email_exists)
-                );
-            }
-
-            student.email = email;
+        if (req.body.hasOwnProperty('subCourseId') && subCourseId) {
+            const subCourseExists = await InstituteSubCoursesModel.findOne({ _id: subCourseId, isDeleted: false });
+            if (!subCourseExists) return res.status(404).send(response.toJson(messages['en'].instituteCourse.subcourse_invalid));
         }
 
-        if (phone && phone !== student.phone) {
-            const phoneExists = await InstituteStudentsModel.findOne({
-                phone,
-                batchId: student.batchId,
-                _id: { $ne: studentId },
-                isDeleted: false
-            });
-            if (phoneExists) {
-                return res.status(400).send(
-                    response.toJson(messages['en'].instituteStudent.phone_exists)
-                );
+        // check duplicates if email or phone is being updated (or if batch/course/subcourse is changing, then also check with existing email/phone)
+        const finalBatchId = batchId || student.batchId;
+        const finalCourseId = CourseId || student.CourseId;
+        const finalSubCourseId = (req.body.hasOwnProperty('subCourseId') ? subCourseId : student.subCourseId) || null;
+        const finalEmail = email ? email.toLowerCase() : student.email;
+        const finalPhone = phone || student.phone;
+
+        const orClause = [];
+        const baseQuery = { 
+            batchId: finalBatchId, 
+            CourseId: finalCourseId, 
+            subCourseId: finalSubCourseId,
+            isDeleted: false,
+            _id: { $ne: studentId }
+        };
+
+        if (finalEmail) orClause.push({ ...baseQuery, email: finalEmail });
+        if (finalPhone) orClause.push({ ...baseQuery, phone: finalPhone });
+
+        if (orClause.length > 0) {
+            const duplicate = await InstituteStudentsModel.findOne({ $or: orClause });
+            if (duplicate) {
+                if (duplicate.email === finalEmail) {
+                    return res.status(400).send(response.toJson(messages['en'].instituteStudent.email_exists));
+                }
+                return res.status(400).send(response.toJson(messages['en'].instituteStudent.phone_exists));
             }
-            student.phone = phone;
         }
-        if (name) student.name = name;
+
+        // update fields if provided
+        if (CourseId) student.CourseId = CourseId;
+        if (batchId) student.batchId = batchId;
+        if (req.body.hasOwnProperty('subCourseId')) student.subCourseId = subCourseId || null;
+
+        if (prefixName) student.prefixName = prefixName.toUpperCase();
+        if (firstName) student.firstName = firstName;
+        if (lastName) student.lastName = lastName;
+        if (email) student.email = email.toLowerCase();
+        if (phone) student.phone = phone;
+        
+        if (countryCode) student.countryCode = countryCode;
+        if (countryCodeName) student.countryCodeName = countryCodeName;
+        if (alternatePhone) student.alternatePhone = alternatePhone;
+        if (gender) student.gender = gender.toUpperCase();
+        if (dateOfBirth) student.dateOfBirth = dateOfBirth;
+        if (age !== undefined) student.age = age;
+        if (state) student.state = state;
+        if (city) student.city = city;
+        if (highestEducation) student.highestEducation = highestEducation;
+        if (currentDesignation) student.currentDesignation = currentDesignation;
+        if (yearsOfExperienceRealEstate !== undefined) student.yearsOfExperienceRealEstate = yearsOfExperienceRealEstate;
+        if (courseStartDate) student.courseStartDate = courseStartDate;
+        
+        if (holdingSeat !== undefined) student.holdingSeat = holdingSeat;
+        if (enrolledCourse !== undefined) student.enrolledCourse = enrolledCourse;
+        if (isCoordinator !== undefined) student.isCoordinator = isCoordinator;
         if (status) student.status = status;
 
-        if (req.body.documentsSubmitted) {
-            student.documentsSubmitted = req.body.documentsSubmitted;
-        }
-        if (req.body.profilePicture) {
-            student.profilePicture = req.body.profilePicture;
-        }
+        if (documentsSubmitted) student.documentsSubmitted = documentsSubmitted;
+        if (profilePicture) student.profilePicture = profilePicture;
 
+        student.updatedBy = req.user?._id;
         student.updatedAt = new Date();
 
         await student.save();
 
         return res.status(200).send(
-            response.toJson(
-                messages['en'].common.update_success,
-                //     {
-                //         id: student._id,
-                //         name: student.name,
-                //         email: student.email,
-                //         phone: student.phone,
-                //         status: student.status,
-                //         updatedBy: student.updatedBy,
-                //         updatedAt: student.updatedAt
-                //     }
-            )
+            response.toJson(messages['en'].common.update_success, student)
         );
 
     } catch (err) {
